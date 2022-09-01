@@ -26,17 +26,17 @@ class StateMachine():
         self.status_message = "State: Idle"
         self.current_state = "idle"
         self.next_state = "idle"
-        self.waypoints = [
-            [-np.pi/2,       -0.5,      -0.3,            0.0,       0.0],
-            [0.75*-np.pi/2,   0.5,      0.3,      0.0,       np.pi/2],
-            [0.5*-np.pi/2,   -0.5,     -0.3,     np.pi / 2,     0.0],
-            [0.25*-np.pi/2,   0.5,     0.3,     0.0,       np.pi/2],
-            [0.0,             0.0,      0.0,         0.0,     0.0],
-            [0.25*np.pi/2,   -0.5,      -0.3,      0.0,       np.pi/2],
-            [0.5*np.pi/2,     0.5,     0.3,     np.pi / 2,     0.0],
-            [0.75*np.pi/2,   -0.5,     -0.3,     0.0,       np.pi/2],
-            [np.pi/2,         0.5,     0.3,      0.0,     0.0],
-            [0.0,             0.0,     0.0,      0.0,     0.0]]
+        self.waypoints = [[-np.pi/2,       -0.5,      -0.3,      0.0,       0.0   ],
+                            [0.75*-np.pi/2,   0.5,       0.3,      0.0,      np.pi/2],
+                            [0.5*-np.pi/2,   -0.5,      -0.3,     np.pi/2,    0.0   ],
+                            [0.25*-np.pi/2,   0.5,       0.3,      0.0,      np.pi/2],
+                            [0.0,             0.0,       0.0,      0.0,       0.0   ],
+                            [0.25*np.pi/2,   -0.5,      -0.3,      0.0,      np.pi/2],
+                            [0.5*np.pi/2,     0.5,       0.3,     np.pi/2,    0.0   ],
+                            [0.75*np.pi/2,   -0.5,      -0.3,      0.0,      np.pi/2],
+                            [np.pi/2,         0.5,       0.3,      0.0,       0.0   ],
+                            [0.0,             0.0,       0.0,      0.0,       0.0   ]]
+
 
     def set_next_state(self, state):
         """!
@@ -109,6 +109,12 @@ class StateMachine():
               Make sure you respect estop signal
         """
         self.status_message = "State: Execute - Executing motion plan"
+        self.current_state = "execute"
+        for pt in self.waypoints:
+            if self.next_state == "estop":
+                return
+            self.rxarm.set_positions(pt)
+            rospy.sleep(self.rxarm.moving_time)
         self.next_state = "idle"
 
     def calibrate(self):
