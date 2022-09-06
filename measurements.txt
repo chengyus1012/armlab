@@ -1,0 +1,10 @@
+Height to top of frame = 102.7cm
+Height of camera fixture = 6cm
+Distance from left support to center of camera = 53.5cm
+offset of lens in Y = 1.5cm
+Y offset of camera center = 17.5cm
+
+[ 1   0   0    35 ]
+[ 0  -1   0   190 ]
+[ 0   0  -1   967 ]
+[ 0   0   0     1 ]
