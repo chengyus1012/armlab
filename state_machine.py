@@ -167,11 +167,33 @@ class StateMachine():
         #                             [ 0,  -1,   0,   tag_position_relative_to_camera[1] ],
         #                             [ 0,   0,  -1,   tag_position_relative_to_camera[2] ],
         #                             [ 0,   0,   0,     1 ]])
+
         rospy.logerr("Shapes %s %s", rot_matrix.shape,tag_position_relative_to_camera.shape)
         H_camera_to_tag = np.block([[rot_matrix,np.reshape(tag_position_relative_to_camera,(3,1))],[np.zeros((1,3)),1]])
         H_world_to_camera = np.matmul(H_world_to_tag_plane, np.linalg.inv(H_camera_to_tag))
         rospy.logerr("Matrix: \n%s",H_world_to_camera)
         self.status_message = "Calibration - Completed Calibration"
+
+        ############################ chengyu version ########################################
+        # unit vectors of x,y,z axis of the tag frame in camera frame, representing rotation from camera to tag
+        # and the displacement should be a vector pointing from camera frame to tag frame
+        rot_matrix_tag_to_camera = np.array([vec_4_to_3,
+                               vec_4_to_1, 
+                               normal_vec,
+                               ])
+
+        H_tag_plane_to_world = np.array([   [ 1,   0,   0,   tag_position_in_world[0] ],
+                                            [ 0,  -1,   0,   tag_position_in_world[1] ],
+                                            [ 0,   0,   1,   tag_position_in_world[2] ],
+                                            [ 0,   0,   0,     1 ]])
+
+        H_tag_to_camera = np.block([[rot_matrix_tag_to_camera, np.reshape(tag_position_relative_to_camera,(3,1))],[np.zeros((1,3)),1]])
+        # The first result we calculated is H_camera_to_world = H_tag_to_world * H_camera_tag,
+        # and that's why they are so close!
+        # We can still calculate H_camera_to_world
+        H_camera_to_world = np.matmul(H_tag_plane_to_world, np.linalg.inv(H_tag_to_camera))
+        
+        ############################ end of the code ########################################
 
     """ TODO """
     def detect(self):
