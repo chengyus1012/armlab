@@ -67,6 +67,7 @@ class Gui(QMainWindow):
                                                 [ 0,  -1,   0,   165 ],
                                                 [ 0,   0,  -1,   967 ],
                                                 [ 0,   0,   0,     1 ]])
+        self.camera.distortion_coeffs = np.array([0.15564486384391785, -0.48568257689476013, -0.0019681642297655344, 0.0007267732871696353, 0.44230175018310547])
         print("Creating rx arm...")
         if (dh_config_file is not None):
             self.rxarm = RXArm(dh_config_file=dh_config_file)
@@ -98,11 +99,15 @@ class Gui(QMainWindow):
         self.ui.btnUser1.setText("Calibrate")
         self.ui.btnUser1.clicked.connect(partial(nxt_if_arm_init, 'calibrate'))
         self.ui.btnUser2.setText('Open Gripper')
-        self.ui.btnUser2.clicked.connect(lambda: self.rxarm.open_gripper())
+        self.ui.btnUser2.clicked.connect(lambda: self.rxarm.open())
         self.ui.btnUser3.setText('Close Gripper')
-        self.ui.btnUser3.clicked.connect(lambda: self.rxarm.close_gripper())
+        self.ui.btnUser3.clicked.connect(lambda: self.rxarm.close())
         self.ui.btnUser4.setText('Execute')
         self.ui.btnUser4.clicked.connect(partial(nxt_if_arm_init, 'execute'))
+        self.ui.btnUser5.setText('Record Waypoint')
+        self.ui.btnUser5.clicked.connect(partial(nxt_if_arm_init, 'record'))
+        self.ui.btnUser6.setText('Playback Waypoints')
+        self.ui.btnUser6.clicked.connect(partial(nxt_if_arm_init, 'playback'))
 
         # Sliders
         for sldr in self.joint_sliders:

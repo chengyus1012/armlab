@@ -41,6 +41,7 @@ class StateMachine():
                             [0.75*np.pi/2,   -0.5,      -0.3,      0.0,      np.pi/2],
                             [np.pi/2,         0.5,       0.3,      0.0,       0.0   ],
                             [0.0,             0.0,       0.0,      0.0,       0.0   ]]
+        self.recorded_positions = []
         self.tag_positions = np.array([[-250, -25, 0], # 1
                                [ 250, -25, 0], # 2
                                [ 250, 275, 0], # 3
@@ -86,6 +87,12 @@ class StateMachine():
 
         if self.next_state == "manual":
             self.manual()
+
+        if self.next_state == "record":
+            self.record()
+        
+        if self.next_state == "playback":
+            self.playback()
 
 
     """Functions run for each state"""
@@ -141,14 +148,20 @@ class StateMachine():
 
         # IDs: BL = 1, BR = 2, TR = 3, TL = 4 (BR unstable)
         points_camera = np.zeros(self.tag_positions.shape)
+        pixel_coords = np.zeros(self.tag_positions.shape, dtype=int)
         for tag in self.latest_tags.detections:
             id = tag.id[0]
             tag_position = np.array([tag.pose.pose.pose.position.x, tag.pose.pose.pose.position.y, tag.pose.pose.pose.position.z]) * 1000
-            points_camera[id - 1, :] = tag_position
+            pixel_coords[id - 1, :] = np.matmul(np.block([(1 / (tag_position[2])) * self.camera.intrinsic_matrix, np.zeros((3,1))]), np.append(tag_position,1))
+            z =self.camera.DepthFrameRaw[pixel_coords[id - 1, 1],pixel_coords[id - 1, 0]]
+            points_camera[id - 1, :] =  np.matmul(z * np.linalg.inv(self.camera.intrinsic_matrix), pixel_coords[id - 1, :])
+        
+        A_pnp = self.recover_homogenous_transform_pnp(pixel_coords[:,:-1].astype(np.float32),self.tag_positions.astype(np.float32), self.camera.intrinsic_matrix)
+        self.camera.extrinsic_matrix = np.linalg.inv(A_pnp)
 
-        A_svd = self.recover_homogeneous_transform_svd(self.tag_positions, points_camera)
+        # A_svd = self.recover_homogeneous_transform_svd(self.tag_positions, points_camera)
 
-        self.camera.extrinsic_matrix = A_svd
+        # self.camera.extrinsic_matrix = np.linalg.inv(A_svd)
 
         # A_affine_cv = self.recover_homogeneous_affine_opencv(
         #     points_camera.astype(np.float32), self.tag_positions.astype(np.float32))
@@ -157,7 +170,6 @@ class StateMachine():
         # A_affine = self.recover_homogenous_affine_transformation(self.tag_positions[0:3], points_camera[0:3])
         # self.camera.extrinsic_matrix = A_affine
 
-        rospy.logerr("Matrix: \n%s",self.camera.extrinsic_matrix)
         self.status_message = "Calibration - Completed Calibration"
 
         # # Old Method
@@ -241,6 +253,41 @@ class StateMachine():
             rospy.sleep(5)
         self.next_state = "idle"
     
+    def record(self):
+        """!
+        @brief      Initializes the rxarm.
+        """
+        self.current_state = "record"
+        self.status_message = "Recording waypoint"
+
+        if not self.rxarm.initialized:
+            print('Arm is not initialized')
+            self.status_message = "State: Arm is not initialized!"
+            self.next_state = "idle"
+            return
+        
+        current_position = [self.rxarm.get_positions(), self.rxarm.gripper_state]
+        self.recorded_positions.append(current_position)
+        self.next_state = "idle"
+
+    def playback(self):
+        """!
+        @brief      Go through all waypoints
+        """
+        self.status_message = "State: Playback - Executing recorded waypoints"
+        self.current_state = "playback"
+        print(self.recorded_positions)
+        for pt in self.recorded_positions:
+            if self.next_state == "estop":
+                return
+            self.rxarm.set_positions(pt[0])
+            rospy.sleep(self.rxarm.moving_time)
+            if pt[1] == True: # Closed
+                self.rxarm.close()
+            else:
+                self.rxarm.open()
+        self.next_state = "idle"
+    
     def apriltag_callback(self, tags):
         self.latest_tags = tags
 
@@ -312,6 +359,22 @@ class StateMachine():
 
         # calculate affine transformation matrix
         return np.transpose(np.column_stack((np.row_stack((R, t)), (0, 0, 0, 1))))
+
+    def recover_homogenous_transform_pnp(self, image_points, world_points, K):
+        '''
+        Use SolvePnP to find the rigidbody transform representing the camera pose in
+        world coordinates (not working)
+        '''
+        distCoeffs = self.camera.distortion_coeffs
+        image_points = np.ascontiguousarray(image_points).reshape((image_points.shape[0],1,2))
+        [_, R_exp, t] = cv2.solvePnP(world_points,
+                                    image_points,
+                                    K,
+                                    distCoeffs,
+                                    flags=cv2.SOLVEPNP_EPNP)
+        R, _ = cv2.Rodrigues(R_exp)
+        return np.row_stack((np.column_stack((R, t)), (0, 0, 0, 1)))
+
 
 class StateMachineThread(QThread):
     """!

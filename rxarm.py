@@ -63,6 +63,7 @@ class RXArm(InterbotixRobot):
         """
         super().__init__(robot_name="rx200", mrd=mrd)
         self.joint_names = self.resp.joint_names
+        print(self.joint_names)
         self.num_joints = 5
         # Gripper
         self.gripper_state = True
@@ -112,7 +113,7 @@ class RXArm(InterbotixRobot):
         self.go_to_home_pose(moving_time=self.moving_time,
                              accel_time=self.accel_time,
                              blocking=False)
-        self.open_gripper()
+        self.open()
         self.initialized = True
         return self.initialized
 
@@ -222,6 +223,16 @@ class RXArm(InterbotixRobot):
         """
         return self.dh_params
 
+    def close(self):
+        self.torque_joints_on([self.joint_names[-1]])
+        self.close_gripper()
+        self.gripper_state = True
+
+    def open(self):
+        self.torque_joints_on([self.joint_names[-1]])
+        self.open_gripper()
+        self.gripper_state = False
+
 
 class RXArmThread(QThread):
     """!
@@ -262,7 +273,6 @@ class RXArmThread(QThread):
 
             rospy.spin()
 
-
 if __name__ == '__main__':
     rxarm = RXArm()
     print(rxarm.joint_names)
@@ -278,9 +288,9 @@ if __name__ == '__main__':
                                   moving_time=2.0,
                                   accel_time=0.5,
                                   blocking=True)
-        rxarm.close_gripper()
+        rxarm.close()
         rxarm.go_to_home_pose()
-        rxarm.open_gripper()
+        rxarm.open()
         rxarm.sleep()
 
     except KeyboardInterrupt:
