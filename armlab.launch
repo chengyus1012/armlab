@@ -1,0 +1,24 @@
+<launch>
+    <arg name="launch_station"              default="true"/>
+    <arg name="camera_calibration_path"/>
+    <arg name="camera_params_path"/>
+
+    <include file="$(find realsense2_camera)/launch/rs_l515.launch" >
+        <arg name="align_depth"     value="true"/>
+        <!-- TODO Load camera parameters -->
+    </include>
+
+    <include file="$(find apriltag_ros)/launch/continuous_detection.launch" >
+        <arg name="camera_name"     value="/camera/color/"/>
+        <arg name="camera_name"     value="image_raw"/>
+        <!-- TODO Publish transforms correctly -->
+    </include>
+
+    <include file="$(find interbotix_sdk)/launch/arm_run.launch" >
+        <arg name="robot_name"                  value="rx200"/>
+        <arg name="use_time_based_profile"      value="true"/>
+        <arg name="gripper_operating_mode"      value="pwm"/>
+        <!-- TODO use_time_based_profile false -->
+    </include>
+
+</launch>
