@@ -32,7 +32,7 @@ class Gui(QMainWindow):
 
     Contains the main function and interfaces between the GUI and functions.
     """
-    def __init__(self, parent=None, dh_config_file=None):
+    def __init__(self, parent=None, dh_config_file=None, pox_config_file=None):
         QWidget.__init__(self, parent)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -69,6 +69,8 @@ class Gui(QMainWindow):
                                                 [ 0,   0,   0,     1 ]])
         self.camera.distortion_coeffs = np.array([0.15564486384391785, -0.48568257689476013, -0.0019681642297655344, 0.0007267732871696353, 0.44230175018310547])
         print("Creating rx arm...")
+        if (pox_config_file is not None):
+            self.rxarm = RXArm(pox_config_file=pox_config_file)
         if (dh_config_file is not None):
             self.rxarm = RXArm(dh_config_file=dh_config_file)
         else:
@@ -108,6 +110,9 @@ class Gui(QMainWindow):
         self.ui.btnUser5.clicked.connect(partial(nxt_if_arm_init, 'record'))
         self.ui.btnUser6.setText('Playback Waypoints')
         self.ui.btnUser6.clicked.connect(partial(nxt_if_arm_init, 'playback'))
+        self.ui.btnUser7.setText('Clear Waypoints')
+        self.ui.btnUser7.clicked.connect(partial(nxt_if_arm_init, 'clear'))
+
 
         # Sliders
         for sldr in self.joint_sliders:
@@ -272,7 +277,7 @@ def main(args=None):
     @brief      Starts the GUI
     """
     app = QApplication(sys.argv)
-    app_window = Gui(dh_config_file=args['dhconfig'])
+    app_window = Gui(pox_config_file=args['poxconfig'])
     app_window.show()
     sys.exit(app.exec_())
 
@@ -285,4 +290,9 @@ if __name__ == '__main__':
                     "--dhconfig",
                     required=False,
                     help="path to DH parameters csv file")
+    ap.add_argument("-p",
+                    "--poxconfig",
+                    required=False,
+                    help="path to PoX parameters csv file")
+
     main(args=vars(ap.parse_args()))

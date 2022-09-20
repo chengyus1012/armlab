@@ -23,6 +23,7 @@ from interbotix_descriptions import interbotix_mr_descriptions as mrd
 from config_parse import *
 from sensor_msgs.msg import JointState
 import rospy
+import scipy
 """
 TODO: Implement the missing functions and add anything you need to support them
 """
@@ -52,7 +53,7 @@ class RXArm(InterbotixRobot):
     """!
     @brief      This class describes a RXArm wrapper class for the rx200
     """
-    def __init__(self, dh_config_file=None):
+    def __init__(self, dh_config_file=None, pox_config_file=None):
         """!
         @brief      Constructs a new instance.
 
@@ -81,10 +82,16 @@ class RXArm(InterbotixRobot):
         self.dh_params = []
         self.dh_config_file = dh_config_file
         if (dh_config_file is not None):
-            self.dh_params = RXArm.parse_dh_param_file(dh_config_file)
+            self.dh_params = self.parse_dh_param_file(dh_config_file)
         #POX params
         self.M_matrix = []
         self.S_list = []
+        self.pox_config_file = pox_config_file
+        if (pox_config_file is not None):
+            self.M_matrix, self.S_list = load_pox_param_file(pox_config_file)
+
+        print(self.M_matrix, self.S_list)
+        self.max_angular_vel = 0.8 # rad/s
 
     def initialize(self):
         """!
@@ -183,6 +190,19 @@ class RXArm(InterbotixRobot):
 
 
 #   @_ensure_initialized
+    def construct_se3_matrix(self, vector):
+        w = np.zeros((3,3))
+        w[0,1] = -vector[2]
+        w[1,0] = vector[2]
+        w[0,2] = vector[1]
+        w[2,0] = -vector[1]
+        w[1,2] = -vector[2]
+        w[2,1] = vector[2]
+        v = vector[3:].reshape((3,1))
+        S = np.block([[w,v],[np.zeros((1,4))]])
+        return S
+
+
 
     def get_ee_pose(self):
         """!
@@ -190,6 +210,14 @@ class RXArm(InterbotixRobot):
 
         @return     The EE pose as [x, y, z, phi] or as needed.
         """
+        cur_pos = np.array(self.rxarm.get_positions())
+
+        temp = np.array((4,4))
+        for i in range(5):
+            temp = np.matmul(temp,scipy.linalg.expm(self.construct_se3_matrix(self.S_list[i,:])*cur_pos[i]))
+        ans = np.matmul(temp, self.M_matrix)
+         
+        
         return [0, 0, 0, 0]
 
     @_ensure_initialized
@@ -207,11 +235,15 @@ class RXArm(InterbotixRobot):
 
         @return     0 if file was parsed, -1 otherwise 
         """
-        return -1
+        print("Parsing PoX config file...")
+        pox_params = load_pox_param_file(self.pox_config_file)
+        print("PoX config file parse exit.")
+
+        return pox_params
 
     def parse_dh_param_file(self):
         print("Parsing DH config file...")
-        parse_dh_param_file(self.dh_config_file)
+        dh_params = parse_dh_param_file(self.dh_config_file)
         print("DH config file parse exit.")
         return dh_params
 
@@ -260,8 +292,8 @@ class RXArmThread(QThread):
         self.rxarm.effort_fb = np.asarray(data.effort)[0:5]
         self.updateJointReadout.emit(self.rxarm.position_fb.tolist())
         self.updateEndEffectorReadout.emit(self.rxarm.get_ee_pose())
-        #for name in self.rxarm.joint_names:
-        #    print("{0} gains: {1}".format(name, self.rxarm.get_motor_pid_params(name)))
+        # for name in self.rxarm.joint_names:
+        #    print("{0} gains: {1}".format(name, self.rxarm.velocity_fb))
         if (__name__ == '__main__'):
             print(self.rxarm.position_fb)
 

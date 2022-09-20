@@ -10,7 +10,7 @@
 
     <include file="$(find apriltag_ros)/launch/continuous_detection.launch" >
         <arg name="camera_name"     value="/camera/color/"/>
-        <arg name="camera_name"     value="image_raw"/>
+        <arg name="image_topic"     value="image_raw"/>
         <!-- TODO Publish transforms correctly -->
     </include>
 

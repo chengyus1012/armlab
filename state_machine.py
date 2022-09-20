@@ -8,6 +8,8 @@ import time
 import numpy as np
 import rospy
 import cv2
+import math
+import pandas as pd 
 from scipy.spatial.transform import Rotation
 from apriltag_ros.msg import AprilTagDetectionArray
 
@@ -48,6 +50,7 @@ class StateMachine():
                                [-250, 275, 0]])# 4 # in world frame
         self.K = np.reshape(np.array([918.3599853515625, 0.0, 661.1923217773438, 0.0, 919.1538696289062, 356.59722900390625, 0.0, 0.0, 1.0]),(3,3))
         self.apriltag_sub = rospy.Subscriber('/tag_detections', AprilTagDetectionArray, self.apriltag_callback)
+        self.sample_rate = 20.0 # in Hz
 
     def set_next_state(self, state):
         """!
@@ -93,6 +96,9 @@ class StateMachine():
         
         if self.next_state == "playback":
             self.playback()
+        
+        if self.next_state == "clear":
+            self.clear()
 
 
     """Functions run for each state"""
@@ -259,7 +265,6 @@ class StateMachine():
         """
         self.current_state = "record"
         self.status_message = "Recording waypoint"
-
         if not self.rxarm.initialized:
             print('Arm is not initialized')
             self.status_message = "State: Arm is not initialized!"
@@ -276,18 +281,39 @@ class StateMachine():
         """
         self.status_message = "State: Playback - Executing recorded waypoints"
         self.current_state = "playback"
-        print(self.recorded_positions)
+        rate = rospy.Rate(self.sample_rate)
+        sleep_time = 1.0 / self.sample_rate
+        rate.sleep()
+        recorded_data = []
+        # pd.DataFrame({'Time': [], 'J1' : [], 'J2' : [], 'J3' : [], 'J4' : [], 'J5' : [], 'End' : })
         for pt in self.recorded_positions:
             if self.next_state == "estop":
                 return
-            self.rxarm.set_positions(pt[0])
-            rospy.sleep(self.rxarm.moving_time)
+            cur_pos = np.array(self.rxarm.get_positions())
+            max_delta = max(abs(np.array(pt[0]) - cur_pos))
+            move_time = max_delta / self.rxarm.max_angular_vel
+            num_data_points = math.ceil(move_time / sleep_time)
+            self.rxarm.set_joint_positions(pt[0],moving_time = move_time, accel_time = move_time/3, blocking=False)
+            for i in range(num_data_points):
+                cur_time = rospy.Time.now()
+                cur_pos = np.array(self.rxarm.get_positions())
+                end_pos = self.rxarm.get_ee_pose()
+                recorded_data
+                rate.sleep()
+            # rospy.sleep(move_time)
             if pt[1] == True: # Closed
                 self.rxarm.close()
             else:
                 self.rxarm.open()
         self.next_state = "idle"
     
+    def clear(self):
+        self.status_message = "State: Clearing waypoints"
+        self.current_state = "clear"
+        self.recorded_positions = []
+        self.next_state = "idle"
+
+
     def apriltag_callback(self, tags):
         self.latest_tags = tags
 
