@@ -1,6 +1,7 @@
 """!
 The state machine that implements the logic.
 """
+from asyncore import write
 from cmath import sqrt
 from turtle import pos
 from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
@@ -12,6 +13,7 @@ import math
 import pandas as pd 
 from scipy.spatial.transform import Rotation
 from apriltag_ros.msg import AprilTagDetectionArray
+from utility_functions import *
 
 class StateMachine():
     """!
@@ -298,13 +300,14 @@ class StateMachine():
                 cur_time = rospy.Time.now()
                 cur_pos = np.array(self.rxarm.get_positions())
                 end_pos = self.rxarm.get_ee_pose()
-                recorded_data
+                recorded_data.append(end_pos)
                 rate.sleep()
             # rospy.sleep(move_time)
             if pt[1] == True: # Closed
                 self.rxarm.close()
             else:
                 self.rxarm.open()
+        write_to_file(path=, recorded_data)
         self.next_state = "idle"
     
     def clear(self):

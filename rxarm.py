@@ -23,7 +23,8 @@ from interbotix_descriptions import interbotix_mr_descriptions as mrd
 from config_parse import *
 from sensor_msgs.msg import JointState
 import rospy
-import scipy
+from scipy.linalg import expm
+from utility_functions import construct_se3_matrix
 """
 TODO: Implement the missing functions and add anything you need to support them
 """
@@ -190,35 +191,26 @@ class RXArm(InterbotixRobot):
 
 
 #   @_ensure_initialized
-    def construct_se3_matrix(self, vector):
-        w = np.zeros((3,3))
-        w[0,1] = -vector[2]
-        w[1,0] = vector[2]
-        w[0,2] = vector[1]
-        w[2,0] = -vector[1]
-        w[1,2] = -vector[2]
-        w[2,1] = vector[2]
-        v = vector[3:].reshape((3,1))
-        S = np.block([[w,v],[np.zeros((1,4))]])
-        return S
-
+    
 
 
     def get_ee_pose(self):
         """!
         @brief      TODO Get the EE pose.
 
-        @return     The EE pose as [x, y, z, phi] or as needed.
+        @return     The EE pose as 4*4 SE3 matrix
         """
         cur_pos = np.array(self.rxarm.get_positions())
 
-        temp = np.array((4,4))
+        temp = np.eye((4,4))
         for i in range(5):
-            temp = np.matmul(temp,scipy.linalg.expm(self.construct_se3_matrix(self.S_list[i,:])*cur_pos[i]))
-        ans = np.matmul(temp, self.M_matrix)
+            temp = np.matmul(temp, expm(construct_se3_matrix(self.S_list[i,:])*cur_pos[i]))
+        ee_pose = np.matmul(temp, self.M_matrix)
          
         
-        return [0, 0, 0, 0]
+        return ee_pose
+    
+
 
     @_ensure_initialized
     def get_wrist_pose(self):
