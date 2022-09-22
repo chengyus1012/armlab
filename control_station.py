@@ -71,7 +71,7 @@ class Gui(QMainWindow):
         print("Creating rx arm...")
         if (pox_config_file is not None):
             self.rxarm = RXArm(pox_config_file=pox_config_file)
-        if (dh_config_file is not None):
+        elif (dh_config_file is not None):
             self.rxarm = RXArm(dh_config_file=dh_config_file)
         else:
             self.rxarm = RXArm()
@@ -159,8 +159,8 @@ class Gui(QMainWindow):
         self.ui.rdoutY.setText(str("%+.2f mm" % (1000 * pos[1])))
         self.ui.rdoutZ.setText(str("%+.2f mm" % (1000 * pos[2])))
         self.ui.rdoutPhi.setText(str("%+.2f rad" % (pos[3])))
-        #self.ui.rdoutTheta.setText(str("%+.2f" % (pos[4])))
-        #self.ui.rdoutPsi.setText(str("%+.2f" % (pos[5])))
+        self.ui.rdoutTheta.setText(str("%+.2f rad" % (pos[4])))
+        self.ui.rdoutPsi.setText(str("%+.2f rad" % (pos[5])))
 
     @pyqtSlot(QImage, QImage, QImage)
     def setImage(self, rgb_image, depth_image, tag_image):

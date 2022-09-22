@@ -24,6 +24,7 @@ def load_pox_param_file(pox_config_file):
 
     assert(f.closed)
     assert(f_line_contents is not None)
+    print("CONTENTS:" ,f_line_contents)
     # maybe not the most efficient/clean/etc. way to do this, but should only have to be done once so NBD
     M_matrix = np.asarray([line.rstrip().split(',') for line in f_line_contents[1:5]])
     M_matrix = M_matrix.astype(float)

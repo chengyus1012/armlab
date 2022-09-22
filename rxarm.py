@@ -24,7 +24,7 @@ from config_parse import *
 from sensor_msgs.msg import JointState
 import rospy
 from scipy.linalg import expm
-from utility_functions import construct_se3_matrix
+from utility_functions import construct_se3_matrix, ee_transformation_to_pose
 """
 TODO: Implement the missing functions and add anything you need to support them
 """
@@ -65,7 +65,6 @@ class RXArm(InterbotixRobot):
         """
         super().__init__(robot_name="rx200", mrd=mrd)
         self.joint_names = self.resp.joint_names
-        print(self.joint_names)
         self.num_joints = 5
         # Gripper
         self.gripper_state = True
@@ -91,8 +90,7 @@ class RXArm(InterbotixRobot):
         if (pox_config_file is not None):
             self.M_matrix, self.S_list = load_pox_param_file(pox_config_file)
 
-        print(self.M_matrix, self.S_list)
-        self.max_angular_vel = 0.8 # rad/s
+        self.max_angular_vel = 0.6 # rad/s
 
     def initialize(self):
         """!
@@ -200,9 +198,13 @@ class RXArm(InterbotixRobot):
 
         @return     The EE pose as 4*4 SE3 matrix
         """
-        cur_pos = np.array(self.rxarm.get_positions())
 
-        temp = np.eye((4,4))
+        if len(self.S_list) == 0:
+            rospy.logwarn('PoX config not loaded')
+            return np.eye(4)
+        cur_pos = np.array(self.get_positions())
+
+        temp = np.eye(4)
         for i in range(5):
             temp = np.matmul(temp, expm(construct_se3_matrix(self.S_list[i,:])*cur_pos[i]))
         ee_pose = np.matmul(temp, self.M_matrix)
@@ -283,7 +285,7 @@ class RXArmThread(QThread):
         self.rxarm.velocity_fb = np.asarray(data.velocity)[0:5]
         self.rxarm.effort_fb = np.asarray(data.effort)[0:5]
         self.updateJointReadout.emit(self.rxarm.position_fb.tolist())
-        self.updateEndEffectorReadout.emit(self.rxarm.get_ee_pose())
+        self.updateEndEffectorReadout.emit(ee_transformation_to_pose(self.rxarm.get_ee_pose()).tolist())
         # for name in self.rxarm.joint_names:
         #    print("{0} gains: {1}".format(name, self.rxarm.velocity_fb))
         if (__name__ == '__main__'):
@@ -299,7 +301,6 @@ class RXArmThread(QThread):
 
 if __name__ == '__main__':
     rxarm = RXArm()
-    print(rxarm.joint_names)
     armThread = RXArmThread(rxarm)
     armThread.start()
     try:

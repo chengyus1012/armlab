@@ -1,5 +1,8 @@
+from __future__ import print_function
 import numpy as np
-from spatialmath import *
+from scipy.spatial.transform import Rotation as R
+# from spatialmath import *
+
 
 def construct_se3_matrix(vector):
         """!
@@ -16,6 +19,7 @@ def construct_se3_matrix(vector):
         w[2,1] = vector[0]
         v = vector[3:].reshape((3,1))
         S = np.block([[w,v],[np.zeros((1,4))]])
+        # print("SE3:", vector, S,sep="\n")
         return S
 
 def write_to_file(path, array):
@@ -79,6 +83,18 @@ def quaternion_normalize(q):
     Normalize the given quaternion to unit quaternion.
     """
     return q / np.linalg.norm(q)
+
+def ee_transformation_to_pose(T):
+    """
+    Convert end effector transformation matrix to end effector pose with Euler angles
+    """
+
+    pos = T[:3,3]
+    rot = T[:3,:3]
+
+    r = R.from_dcm(rot)
+    euler = r.as_euler('zyx')
+    return np.concatenate([pos,euler])
 
 
 # A = np.eye(4,4)

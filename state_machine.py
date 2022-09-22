@@ -49,7 +49,9 @@ class StateMachine():
         self.tag_positions = np.array([[-250, -25, 0], # 1
                                [ 250, -25, 0], # 2
                                [ 250, 275, 0], # 3
-                               [-250, 275, 0]])# 4 # in world frame
+                               [-250, 275, 0], # 4
+                               [375, -100, 151], # 5
+                               [-375, 350, 151]])# 6 # in world frame
         self.K = np.reshape(np.array([918.3599853515625, 0.0, 661.1923217773438, 0.0, 919.1538696289062, 356.59722900390625, 0.0, 0.0, 1.0]),(3,3))
         self.apriltag_sub = rospy.Subscriber('/tag_detections', AprilTagDetectionArray, self.apriltag_callback)
         self.sample_rate = 20.0 # in Hz
@@ -164,6 +166,7 @@ class StateMachine():
             z =self.camera.DepthFrameRaw[pixel_coords[id - 1, 1],pixel_coords[id - 1, 0]]
             points_camera[id - 1, :] =  np.matmul(z * np.linalg.inv(self.camera.intrinsic_matrix), pixel_coords[id - 1, :])
         
+        print("Pixels:\n",pixel_coords)
         A_pnp = self.recover_homogenous_transform_pnp(pixel_coords[:,:-1].astype(np.float32),self.tag_positions.astype(np.float32), self.camera.intrinsic_matrix)
         self.camera.extrinsic_matrix = np.linalg.inv(A_pnp)
 
@@ -286,7 +289,8 @@ class StateMachine():
         rate = rospy.Rate(self.sample_rate)
         sleep_time = 1.0 / self.sample_rate
         rate.sleep()
-        recorded_data = []
+        joint_angle_data = []
+        end_position_data = []
         # pd.DataFrame({'Time': [], 'J1' : [], 'J2' : [], 'J3' : [], 'J4' : [], 'J5' : [], 'End' : })
         for pt in self.recorded_positions:
             if self.next_state == "estop":
@@ -294,20 +298,23 @@ class StateMachine():
             cur_pos = np.array(self.rxarm.get_positions())
             max_delta = max(abs(np.array(pt[0]) - cur_pos))
             move_time = max_delta / self.rxarm.max_angular_vel
-            num_data_points = math.ceil(move_time / sleep_time)
+            num_data_points = int(math.ceil(move_time / sleep_time))
             self.rxarm.set_joint_positions(pt[0],moving_time = move_time, accel_time = move_time/3, blocking=False)
             for i in range(num_data_points):
-                cur_time = rospy.Time.now()
+                cur_time = rospy.Time.now().to_nsec()
                 cur_pos = np.array(self.rxarm.get_positions())
+                cur_joint_data = np.concatenate([[cur_time],cur_pos])
                 end_pos = self.rxarm.get_ee_pose()
-                recorded_data.append(end_pos)
+                joint_angle_data.append(cur_joint_data)
+                end_position_data.append(end_pos)
                 rate.sleep()
             # rospy.sleep(move_time)
             if pt[1] == True: # Closed
                 self.rxarm.close()
             else:
                 self.rxarm.open()
-        write_to_file(path=, recorded_data)
+        np.savetxt('joint_data.txt', joint_angle_data, fmt='%f', delimiter= ',')
+        write_to_file(path="end_data.txt", array=end_position_data)
         self.next_state = "idle"
     
     def clear(self):
