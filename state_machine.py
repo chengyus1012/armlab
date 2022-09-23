@@ -291,6 +291,7 @@ class StateMachine():
         rate.sleep()
         joint_angle_data = []
         end_position_data = []
+        zero_time = rospy.Time().to_nsec()
         # pd.DataFrame({'Time': [], 'J1' : [], 'J2' : [], 'J3' : [], 'J4' : [], 'J5' : [], 'End' : })
         for pt in self.recorded_positions:
             if self.next_state == "estop":
@@ -303,7 +304,7 @@ class StateMachine():
             for i in range(num_data_points):
                 cur_time = rospy.Time.now().to_nsec()
                 cur_pos = np.array(self.rxarm.get_positions())
-                cur_joint_data = np.concatenate([[cur_time],cur_pos])
+                cur_joint_data = np.concatenate([[cur_time - zero_time],cur_pos])
                 end_pos = self.rxarm.get_ee_pose()
                 joint_angle_data.append(cur_joint_data)
                 end_position_data.append(end_pos)
