@@ -92,6 +92,17 @@ class RXArm(InterbotixRobot):
 
         self.max_angular_vel = 0.6 # rad/s
 
+        self.pid_gains = {"waist":          [640, 0, 3600], # waist gains
+                          "shoulder":       [1000, 50, 1000], # shoulder gains
+                          "elbow":          [1000, 150, 1500], # elbow gains 
+                          "wrist_angle":    [800, 0, 1000], # wrist_angle gains
+                          "wrist_rotate":   [640, 0, 3600], # wrist_rotate gains 
+                          "gripper":        [640, 0, 3600] # gripper gains
+        }
+
+        for joint_name in self.joint_names:
+            self.set_joint_position_pid_params(joint_name, self.pid_gains[joint_name])
+
     def initialize(self):
         """!
         @brief      Initializes the RXArm from given configuration file.
@@ -287,7 +298,7 @@ class RXArmThread(QThread):
         self.updateJointReadout.emit(self.rxarm.position_fb.tolist())
         self.updateEndEffectorReadout.emit(ee_transformation_to_pose(self.rxarm.get_ee_pose()).tolist())
         # for name in self.rxarm.joint_names:
-        #    print("{0} gains: {1}".format(name, self.rxarm.velocity_fb))
+        #    print("{0} gains: {1}".format(name, self.rxarm.get_joint_position_pid_params(name)))
         if (__name__ == '__main__'):
             print(self.rxarm.position_fb)
 
