@@ -215,7 +215,8 @@ class CameraInfoListener:
         self.camera = camera
 
     def callback(self, data):
-        self.camera.intrinsic_matrix = np.reshape(data.K, (3, 3))
+        return
+        # self.camera.intrinsic_matrix = np.reshape(data.K, (3, 3))
         #print(self.camera.intrinsic_matrix)
 
 

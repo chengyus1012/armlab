@@ -50,9 +50,11 @@ class StateMachine():
                                [ 250, -25, 0], # 2
                                [ 250, 275, 0], # 3
                                [-250, 275, 0], # 4
-                               [375, -100, 151], # 5
-                               [-375, 350, 151]])# 6 # in world frame
-        self.K = np.reshape(np.array([918.3599853515625, 0.0, 661.1923217773438, 0.0, 919.1538696289062, 356.59722900390625, 0.0, 0.0, 1.0]),(3,3))
+                               [425,  400, 151], # 5
+                               [-425, 400, 241], # 6 
+                               [-425, -100, 92]])# 7 # in world frame
+        self.K = np.reshape(np.array([917.5701927, 0., 662.45090881, 0., 913.11787224, 352.30931891, 0., 0., 1.]),(3,3))
+        self.D = [ 0.07636514, -0.1292355,  -0.00093855,  0.00284562,  0.        ]
         self.apriltag_sub = rospy.Subscriber('/tag_detections', AprilTagDetectionArray, self.apriltag_callback)
         self.sample_rate = 20.0 # in Hz
 
@@ -155,7 +157,7 @@ class StateMachine():
 
 
         ### None of these worked well (all fairly innacurate), will have to change to solvePNP
-
+        print("MAT\n", self.camera.intrinsic_matrix)
         # IDs: BL = 1, BR = 2, TR = 3, TL = 4 (BR unstable)
         points_camera = np.zeros(self.tag_positions.shape)
         pixel_coords = np.zeros(self.tag_positions.shape, dtype=int)
@@ -169,7 +171,7 @@ class StateMachine():
         print("Pixels:\n",pixel_coords)
         A_pnp = self.recover_homogenous_transform_pnp(pixel_coords[:,:-1].astype(np.float32),self.tag_positions.astype(np.float32), self.camera.intrinsic_matrix)
         self.camera.extrinsic_matrix = np.linalg.inv(A_pnp)
-
+        # self.camera.extrinsic_matrix[2,3] += 10
         # A_svd = self.recover_homogeneous_transform_svd(self.tag_positions, points_camera)
 
         # self.camera.extrinsic_matrix = np.linalg.inv(A_svd)
@@ -408,7 +410,7 @@ class StateMachine():
                                     image_points,
                                     K,
                                     distCoeffs,
-                                    flags=cv2.SOLVEPNP_EPNP)
+                                    flags=cv2.SOLVEPNP_ITERATIVE)
         R, _ = cv2.Rodrigues(R_exp)
         return np.row_stack((np.column_stack((R, t)), (0, 0, 0, 1)))
 

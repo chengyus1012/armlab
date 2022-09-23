@@ -60,14 +60,15 @@ class Gui(QMainWindow):
         ]
         """Objects Using Other Classes"""
         self.camera = Camera()
-        self.camera.intrinsic_matrix = np.reshape(np.array([917.5701927,    0.,         662.45090881,   0.,         913.11787224,    352.30931891,   0.,           0.,           1.        ]),(3,3))
-        # np.reshape(np.array([918.3599853515625, 0.0, 661.1923217773438, 0.0, 919.1538696289062, 356.59722900390625, 0.0, 0.0, 1.0]),(3,3))
+        # self.camera.intrinsic_matrix = np.reshape(np.array([917.5701927,    0.,         662.45090881,   0.,         913.11787224,    352.30931891,   0.,           0.,           1.        ]),(3,3))
+        self.camera.intrinsic_matrix = np.reshape(np.array([918.3599853515625, 0.0, 661.1923217773438, 0.0, 919.1538696289062, 356.59722900390625, 0.0, 0.0, 1.0]),(3,3))
 
         self.camera.extrinsic_matrix =np.array([[ 1,   0,   0,    45 ],
                                                 [ 0,  -1,   0,   165 ],
                                                 [ 0,   0,  -1,   967 ],
                                                 [ 0,   0,   0,     1 ]])
         self.camera.distortion_coeffs = np.array([0.15564486384391785, -0.48568257689476013, -0.0019681642297655344, 0.0007267732871696353, 0.44230175018310547])
+        # self.camera.distortion_coeffs = np.array([ 0.07636514, -0.1292355,  -0.00093855,  0.00284562,  0.        ])
         print("Creating rx arm...")
         if (pox_config_file is not None):
             self.rxarm = RXArm(pox_config_file=pox_config_file)
