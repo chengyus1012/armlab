@@ -113,7 +113,8 @@ class Gui(QMainWindow):
         self.ui.btnUser6.clicked.connect(partial(nxt_if_arm_init, 'playback'))
         self.ui.btnUser7.setText('Clear Waypoints')
         self.ui.btnUser7.clicked.connect(partial(nxt_if_arm_init, 'clear'))
-
+        self.ui.btnUser12.setText('Save Images')
+        self.ui.btnUser12.clicked.connect(self.camera.saveImage)
 
         # Sliders
         for sldr in self.joint_sliders:

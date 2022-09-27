@@ -161,6 +161,10 @@ class Camera():
         """
         pass
 
+    def saveImage(self):
+        cv2.imwrite("data/rgb_image.png", cv2.cvtColor(self.VideoFrame, cv2.COLOR_RGB2BGR))
+        cv2.imwrite("data/raw_depth.png", self.DepthFrameRaw)
+
 
 class ImageListener:
     def __init__(self, topic, camera):

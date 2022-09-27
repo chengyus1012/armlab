@@ -93,8 +93,8 @@ class RXArm(InterbotixRobot):
         self.max_angular_vel = 0.6 # rad/s
 
         self.pid_gains = {"waist":          [640, 0, 3600], # waist gains
-                          "shoulder":       [1000, 50, 1000], # shoulder gains
-                          "elbow":          [1000, 150, 1500], # elbow gains 
+                          "shoulder":       [1000, 0, 1000], # shoulder gains
+                          "elbow":          [1000, 0, 1500], # elbow gains 
                           "wrist_angle":    [800, 0, 1000], # wrist_angle gains
                           "wrist_rotate":   [640, 0, 3600], # wrist_rotate gains 
                           "gripper":        [640, 0, 3600] # gripper gains
