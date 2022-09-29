@@ -24,6 +24,7 @@ from rxarm import RXArm, RXArmThread
 from camera import Camera, VideoThread
 from state_machine import StateMachine, StateMachineThread
 from kinematics import IK_Base_frame
+from modern_robotics import IKinSpace
 """ Radians to/from  Degrees conversions """
 D2R = np.pi / 180.0
 R2D = 180.0 / np.pi
@@ -35,7 +36,7 @@ class Gui(QMainWindow):
 
     Contains the main function and interfaces between the GUI and functions.
     """
-    def __init__(self, parent=None, dh_config_file=None, pox_config_file=None):
+    def __init__(self, parent=None, dh_config_file=None, pox_config_file=None, camera_extrinsic_file=None):
         QWidget.__init__(self, parent)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -66,10 +67,13 @@ class Gui(QMainWindow):
         # self.camera.intrinsic_matrix = np.reshape(np.array([917.5701927,    0.,         662.45090881,   0.,         913.11787224,    352.30931891,   0.,           0.,           1.        ]),(3,3))
         self.camera.intrinsic_matrix = np.reshape(np.array([918.3599853515625, 0.0, 661.1923217773438, 0.0, 919.1538696289062, 356.59722900390625, 0.0, 0.0, 1.0]),(3,3))
 
-        self.camera.extrinsic_matrix =np.array([[ 1,   0,   0,    45 ],
-                                                [ 0,  -1,   0,   165 ],
-                                                [ 0,   0,  -1,   967 ],
-                                                [ 0,   0,   0,     1 ]])
+        if (camera_extrinsic_file is not None):
+            self.camera.loadCameraExtrinsic(camera_extrinsic_file)
+        else:
+            self.camera.extrinsic_matrix =np.array([[ 1,   0,   0,    45 ],
+                                                    [ 0,  -1,   0,   165 ],
+                                                    [ 0,   0,  -1,   967 ],
+                                                    [ 0,   0,   0,     1 ]])
         self.camera.distortion_coeffs = np.array([0.15564486384391785, -0.48568257689476013, -0.0019681642297655344, 0.0007267732871696353, 0.44230175018310547])
         # self.camera.distortion_coeffs = np.array([ 0.07636514, -0.1292355,  -0.00093855,  0.00284562,  0.        ])
         print("Creating rx arm...")
@@ -289,13 +293,14 @@ class Gui(QMainWindow):
             # end effector pose in arm base frame
 
             T = np.array([
-                [0, -1, 0, object_position_arm[0]],
-                [1, 0, 0, object_position_arm[1]],
-                [0, 0, 1, object_position_arm[2]],
+                [0, 0, 1, object_position_arm[0]],
+                [0, 1, 0, object_position_arm[1]],
+                [-1, 0, 0, object_position_arm[2]],
                 [0, 0, 0, 1]])
 
             joint_angle_guess = self.rxarm.get_positions()
             desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T, joint_angle_guess, e_w=0.01, e_v=0.001)
+            #IKinSpace(self.rxarm.S_list.T, self.rxarm.M_matrix, T, joint_angle_guess, eomg=0.01, ev=0.001)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle)
                 rospy.sleep(5)
@@ -331,7 +336,7 @@ def main(args=None):
     @brief      Starts the GUI
     """
     app = QApplication(sys.argv)
-    app_window = Gui(pox_config_file=args['poxconfig'])
+    app_window = Gui(pox_config_file=args['poxconfig'],camera_extrinsic_file=args['extrinsic'])
     app_window.show()
     sys.exit(app.exec_())
 
@@ -340,7 +345,7 @@ def main(args=None):
 ### TODO: Add ability to parse POX config file as well
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument("-c",
+    ap.add_argument("-d",
                     "--dhconfig",
                     required=False,
                     help="path to DH parameters csv file")
@@ -348,5 +353,9 @@ if __name__ == '__main__':
                     "--poxconfig",
                     required=False,
                     help="path to PoX parameters csv file")
+    ap.add_argument("-e",
+                    "--extrinsic",
+                    required=False,
+                    help="path to camera extrinsic txt file")
 
     main(args=vars(ap.parse_args()))

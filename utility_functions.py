@@ -38,11 +38,11 @@ def InvOfTrans(T):
     p = T[0:3, 3]
     Rt = np.array(R).T
 
-    return np.block([[Rt, -np.matmul(Rt, p).reshape((3,1))],[[0, 0, 0, 1]]])
+    return np.block([[Rt, -np.matmul(Rt, p).reshape((3,1))],[0, 0, 0, 1]])
 
 def conv_se3_vec(se3mat):
-    return np.array([[se3mat[2][1], se3mat[0][2], se3mat[1][0]],
-                 [se3mat[0][3], se3mat[1][3], se3mat[2][3]]])
+    return np.array([se3mat[2][1], se3mat[0][2], se3mat[1][0],
+                 se3mat[0][3], se3mat[1][3], se3mat[2][3]]).reshape((6,1))
 
 def VecToso3(omg):
     """Converts a 3-vector to an so(3) representation

@@ -144,6 +144,17 @@ class Camera():
         """
         pass
 
+    def loadCameraExtrinsic(self, file):
+        """!
+        @brief      Load camera extrinsic matrix from file.
+
+        @param      file  The file
+        """
+
+        self.extrinsic_matrix = np.loadtxt(file).reshape((4,4))
+        print('Loaded extrinsic matrix from file')
+        print(self.extrinsic_matrix)
+
     def blockDetector(self):
         """!
         @brief      Detect blocks from rgb

@@ -4,7 +4,7 @@ Implements Forward and Inverse kinematics with DH parametrs and product of expon
 TODO: Here is where you will write all of your kinematics functions
 There are some functions to start with, you may need to implement a few more
 """
-
+from __future__ import print_function
 import imp
 import numpy as np
 # expm is a matrix exponential function
@@ -19,12 +19,13 @@ def Jacobian_Baseframe(S, jointangles):
     @param jointangles A list of joint coordinates
     @return     Inverse of transformation matrix
     """
-    Js = np.array(S).copy().astype(np.float)
+    Js = np.array(S).T.copy().astype(np.float)
     T = np.eye(4)
     for i in range(1, len(jointangles)):
         T = np.matmul(T, expm(construct_se3_matrix(np.array(S)[i - 1,:] \
                                 * jointangles[i - 1])))
-        Js[:, i] = np.matmul(Adjoint(T), np.array(S)[i, :])
+        # print('Shapes:', Adjoint(T).shape, np.array(S)[i, :].shape)
+        Js[:, i] = np.squeeze(np.matmul(Adjoint(T), np.array(S)[i, :].reshape((6,1))))
     return Js
 
 def FK_Baseframe(joint_angle_dis, M, S_list):
@@ -35,7 +36,12 @@ def FK_Baseframe(joint_angle_dis, M, S_list):
     """
 
     temp = np.eye(4)
+    print(joint_angle_dis)
     for i in range(5):
+        # print('More shapes',i,construct_se3_matrix(S_list[i,:]).shape,end=', ')
+        # print(construct_se3_matrix(S_list[i,:]).shape,joint_angle_dis[i])
+        # print((construct_se3_matrix(S_list[i,:])*joint_angle_dis[i]).shape,end=", ")
+        # print(expm(construct_se3_matrix(S_list[i,:])*joint_angle_dis[i]).shape)
         temp = np.matmul(temp, expm(construct_se3_matrix(S_list[i,:])*joint_angle_dis[i]))
     ee_pose = np.matmul(temp, M)
     
@@ -64,7 +70,7 @@ def IK_Base_frame(S, M, T, joint_angles_guess, e_w, e_v):
     cur_pose = FK_Baseframe(joint_angles, M, S)
 
 
-    error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+    error_SE3_b = np.matmu<l(InvOfTrans(cur_pose), T)
     vector_twist_b = conv_se3_vec(logm(error_SE3_b))
     vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
 
@@ -72,7 +78,8 @@ def IK_Base_frame(S, M, T, joint_angles_guess, e_w, e_v):
           or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
 
     while err and i<maxiterations:
-        joint_angles = joint_angles + np.matmul(np.linalg.pinv(Jacobian_Baseframe(S, joint_angles)), vector_twist_s)
+        joint_angles = joint_angles + np.squeeze(np.matmul(np.linalg.pinv(Jacobian_Baseframe(S, joint_angles)), vector_twist_s.reshape((6,1))))
+        
         i+=1
 
         cur_pose = FK_Baseframe(joint_angles, M, S)
@@ -80,6 +87,8 @@ def IK_Base_frame(S, M, T, joint_angles_guess, e_w, e_v):
         vector_twist_b = conv_se3_vec(logm(error_SE3_b))
         vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
 
+        print('Errs',np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]), \
+          np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]))
         err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
           or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
     return (joint_angles, not err)

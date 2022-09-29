@@ -171,6 +171,7 @@ class StateMachine():
         print("Pixels:\n",pixel_coords)
         A_pnp = self.recover_homogenous_transform_pnp(pixel_coords[:,:-1].astype(np.float32),self.tag_positions.astype(np.float32), self.camera.intrinsic_matrix)
         self.camera.extrinsic_matrix = np.linalg.inv(A_pnp)
+        np.savetxt('config/latest_calibration.txt',self.camera.extrinsic_matrix)
         # self.camera.extrinsic_matrix[2,3] += 10
         # A_svd = self.recover_homogeneous_transform_svd(self.tag_positions, points_camera)
 
