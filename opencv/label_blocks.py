@@ -11,8 +11,8 @@ import sys
 import cv2
 import numpy as np
 
-min_depth = 900.0
-max_depth = 1010.0
+min_depth = 940.0
+max_depth = 1000.0
 
 top_board = 100
 bottom_board = 666
@@ -78,8 +78,8 @@ print(rescaled_depth.dtype)
 
 # rescaled_depth *= mask
 print(rescaled_depth.dtype)
-rescaled_depth = cv2.GaussianBlur(rescaled_depth, (5,5), 0)
-
+# rescaled_depth = cv2.GaussianBlur(rescaled_depth, (7,7), 0)
+rescaled_depth = cv2.medianBlur(rescaled_depth,5)
 cv2.namedWindow('Rescaled')
 cv2.imshow('Rescaled',rescaled_depth)
 cv2.setMouseCallback("Rescaled", mouse_callback)
@@ -89,9 +89,10 @@ print(depth_data.dtype, mask.dtype)
 # thresh = cv2.bitwise_and(depth_data, mask)
 # rescaled_depth = rescaled_depth[275:1100][120:720]
 thresh = cv2.adaptiveThreshold(rescaled_depth, 255,
-	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 11)
+	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, -30)
+# thresh = cv2.b\itwise_and(thresh, mask)
+thresh *= mask
 cv2.imshow('Thresh',thresh)
-# thresh = cv2.bitwise_and(depth_blur, mask)
 # cv2.
 
 # edges = cv2.Canny(image=depth_data, threshold1=50, threshold2=100) # Canny Edge Detection
@@ -99,17 +100,20 @@ cv2.imshow('Thresh',thresh)
 # Display Canny Edge Detection Image
 # cv2.imshow('Canny Edge Detection', edges)
 # depending on your version of OpenCV, the following line could be:
-sobel_64 = cv2.Sobel(src=depth_data, ddepth=cv2.CV_64F, dx=1, dy=0, ksize=3)
-abs_64 = np.absolute(sobel_64)
-sobel_8u = np.uint16(abs_64)
-thresh = cv2.inRange(sobel_8u, 5, 40)
+# sobel_64 = cv2.Sobel(src=depth_data, ddepth=cv2.CV_64F, dx=1, dy=0, ksize=3)
+# abs_64 = np.absolute(sobel_64)
+# sobel_8u = np.uint16(abs_64)
+# thresh = cv2.inRange(sobel_8u, 5, 40)
 
 # print(np.unique(sobel_8u))
 # cv2.imshow('Canny Edge Detection', thresh)
 # img, contours, _ = cv2.findContours(depth_data, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 # cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
-# _, contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-# cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
+_, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
+print(len(contours),contours)
+
+cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
 # for contour in contours:
 #     color = retrieve_area_color(rgb_image, contour, colors)
 #     theta = cv2.minAreaRect(contour)[2]
