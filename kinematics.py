@@ -5,10 +5,84 @@ TODO: Here is where you will write all of your kinematics functions
 There are some functions to start with, you may need to implement a few more
 """
 
+import imp
 import numpy as np
 # expm is a matrix exponential function
 from scipy.linalg import expm
+from utility_functions import *
 
+def Jacobian_Baseframe(S, jointangles):
+    """!
+    @brief      Computes the fixed base frame Jacobian
+    @param S    The joint screw axes in the base frame when the
+                    manipulator is at the home position
+    @param jointangles A list of joint coordinates
+    @return     Inverse of transformation matrix
+    """
+    Js = np.array(S).copy().astype(np.float)
+    T = np.eye(4)
+    for i in range(1, len(jointangles)):
+        T = np.matmul(T, expm(construct_se3_matrix(np.array(S)[i - 1,:] \
+                                * jointangles[i - 1])))
+        Js[:, i] = np.matmul(Adjoint(T), np.array(S)[i, :])
+    return Js
+
+def FK_Baseframe(joint_angle_dis, M, S_list):
+    """!
+    @brief      FK in body frame.
+
+    @return     4*4 SE3 matrix representing ee pose in body frame
+    """
+
+    temp = np.eye(4)
+    for i in range(5):
+        temp = np.matmul(temp, expm(construct_se3_matrix(S_list[i,:])*joint_angle_dis[i]))
+    ee_pose = np.matmul(temp, M)
+    
+    return ee_pose
+
+
+
+def IK_Base_frame(S, M, T, joint_angles_guess, e_w, e_v):
+    """!
+    @brief      Computes inverse kinematics in the fixed base frame
+    @param S    The joint screw axes in the base frame when the
+                    manipulator is at the home position
+    @param M    Home position for the end effector
+    @param T    The desired end effector position
+    @param jointangles A list of joint coordinates
+    @param e_w  A small positive tolerance on the end-effector orientation error
+    @param e_v  A small positive tolerance on the end-effector linear position error
+    @return     Inverse of transformation matrix
+    """
+
+
+    joint_angles = np.array(joint_angles_guess).copy()
+    i = 0
+    maxiterations = 20
+
+    cur_pose = FK_Baseframe(joint_angles, M, S)
+
+
+    error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+    vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+    vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+
+    err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
+          or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
+
+    while err and i<maxiterations:
+        joint_angles = joint_angles + np.matmul(np.linalg.pinv(Jacobian_Baseframe(S, joint_angles)), vector_twist_s)
+        i+=1
+
+        cur_pose = FK_Baseframe(joint_angles, M, S)
+        error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+        vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+        vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+
+        err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
+          or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
+    return (joint_angles, not err)
 
 def clamp(angle):
     """!

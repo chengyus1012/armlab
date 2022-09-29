@@ -156,6 +156,20 @@ class RXArm(InterbotixRobot):
                                  accel_time=self.accel_time,
                                  blocking=False)
 
+    def set_positions_custom(self, joint_positions):
+        """!
+         @brief      Sets the positions.
+
+         @param      joint_angles  The joint angles
+         """
+        cur_pos = np.array(self.get_positions())
+        max_delta = max(abs(np.array(joint_positions) - cur_pos))
+        move_time = max_delta / self.max_angular_vel
+        self.set_joint_positions(joint_positions,
+                                 moving_time= move_time,
+                                 accel_time=move_time/3,
+                                 blocking=False)
+
     def set_moving_time(self, moving_time):
         self.moving_time = moving_time
 

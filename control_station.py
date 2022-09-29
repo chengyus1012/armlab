@@ -3,6 +3,8 @@
 Main GUI for Arm lab
 """
 import os
+
+from utility_functions import transformation_from_world_to_arm
 script_path = os.path.dirname(os.path.realpath(__file__))
 
 import argparse
@@ -21,6 +23,7 @@ from ui import Ui_MainWindow
 from rxarm import RXArm, RXArmThread
 from camera import Camera, VideoThread
 from state_machine import StateMachine, StateMachineThread
+from kinematics import IK_Base_frame
 """ Radians to/from  Degrees conversions """
 D2R = np.pi / 180.0
 R2D = 180.0 / np.pi
@@ -85,7 +88,7 @@ class Gui(QMainWindow):
         # Video
         self.ui.videoDisplay.setMouseTracking(True)
         self.ui.videoDisplay.mouseMoveEvent = self.trackMouse
-        self.ui.videoDisplay.mousePressEvent = self.calibrateMousePress
+        self.ui.videoDisplay.mousePressEvent = self.MousePressMoveBlock
 
         # Buttons
         # Handy lambda function falsethat can be used with Partial to only set the new state if the rxarm is initialized
@@ -261,6 +264,55 @@ class Gui(QMainWindow):
         self.camera.last_click[1] = pt.y()
         self.camera.new_click = True
         # print(self.camera.last_click)
+
+    def MousePressMoveBlock(self, mouse_event):
+        """!
+        @brief Grab at the first click and drop at the second click
+
+        @param      mouse_event  QtMouseEvent containing the pose of the mouse at the time of the event not current time
+        """
+
+        pt = mouse_event.pos()
+        self.camera.last_click[0] = pt.x()
+        self.camera.last_click[1] = pt.y()
+        
+        if self.camera.DepthFrameRaw.any() != 0:
+            K = self.camera.intrinsic_matrix
+            H_camera_to_world = self.camera.extrinsic_matrix
+
+            z = self.camera.DepthFrameRaw[pt.y()][pt.x()]
+            
+            object_position_camera = z * np.matmul(np.linalg.inv(K),np.array([pt.x(), pt.y(), 1]).T)
+            object_position_world = np.matmul(H_camera_to_world, np.concatenate([object_position_camera,[1]]))
+            object_position_arm = transformation_from_world_to_arm(object_position_world)
+            # end effector pose in arm base frame
+
+            T = np.array([
+                [0, -1, 0, object_position_arm[0]],
+                [1, 0, 0, object_position_arm[1]],
+                [0, 0, 1, object_position_arm[2]],
+                [0, 0, 0, 1]])
+
+            joint_angle_guess = self.rxarm.get_positions()
+            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T, joint_angle_guess, e_w=0.01, e_v=0.001)
+            if IK_flag:
+                self.rxarm.set_positions_custom(desired_joint_angle)
+                rospy.sleep(5)
+            else:
+                rospy.logerr("Something wrong with the IK")
+
+        if self.camera.new_click == False:
+            self.rxarm.close()
+            self.camera.new_click = True
+        else:
+            self.rxarm.open()
+            self.camera.new_click = False
+
+                
+
+
+
+
 
     def initRxarm(self):
         """!

@@ -1,41 +1,97 @@
 from __future__ import print_function
+from cmath import log
+import imp
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from modern_robotics import IKinBody, JacobianBody
+from scipy.linalg import expm, logm
+
 # from spatialmath import *
 
 
 def construct_se3_matrix(vector):
-        """!
-        @brief      Utility function for constructing se3 matrix from a 6d vector.
+    """!
+    @brief      Utility function for constructing se3 matrix from a 6d vector.
 
-        @return     4*4 se3 matrix
-        """
-        w = np.zeros((3,3))
-        w[0,1] = -vector[2]
-        w[1,0] = vector[2]
-        w[0,2] = vector[1]
-        w[2,0] = -vector[1]
-        w[1,2] = -vector[0]
-        w[2,1] = vector[0]
-        v = vector[3:].reshape((3,1))
-        S = np.block([[w,v],[np.zeros((1,4))]])
-        # print("SE3:", vector, S,sep="\n")
-        return S
+    @return     4*4 se3 matrix
+    """
+    w = np.zeros((3,3))
+    w[0,1] = -vector[2]
+    w[1,0] = vector[2]
+    w[0,2] = vector[1]
+    w[2,0] = -vector[1]
+    w[1,2] = -vector[0]
+    w[2,1] = vector[0]
+    v = vector[3:].reshape((3,1))
+    S = np.block([[w,v],[np.zeros((1,4))]])
+    # print("SE3:", vector, S,sep="\n")
+    return S
+
+def InvOfTrans(T):
+    """!
+    @brief      Calculate the inverse of transformation matrix
+    @param T    4*4 transformation matrix
+    @return     Inverse of transformation matrix
+    """
+    T = np.array(T)
+    R = T[0:3, 0:3]
+    p = T[0:3, 3]
+    Rt = np.array(R).T
+
+    return np.block([[Rt, -np.matmul(Rt, p).reshape((3,1))],[[0, 0, 0, 1]]])
+
+def conv_se3_vec(se3mat):
+    return np.array([[se3mat[2][1], se3mat[0][2], se3mat[1][0]],
+                 [se3mat[0][3], se3mat[1][3], se3mat[2][3]]])
+
+def VecToso3(omg):
+    """Converts a 3-vector to an so(3) representation
+
+    :param omg: A 3-vector
+    :return: The skew symmetric representation of omg
+
+    Example Input:
+        omg = np.array([1, 2, 3])
+    Output:
+        np.array([[ 0, -3,  2],
+                  [ 3,  0, -1],
+                  [-2,  1,  0]])
+    """
+    return np.array([[0,      -omg[2],  omg[1]],
+                     [omg[2],       0, -omg[0]],
+                     [-omg[1], omg[0],       0]])
+
+
+def Adjoint(T):
+    """Computes the adjoint representation of a homogeneous transformation
+    matrix
+
+    :param T: A homogeneous transformation matrix
+    :return: The 6x6 adjoint representation [AdT] of T
+
+    Example Input:
+        T = np.array([[1, 0,  0, 0],
+                      [0, 0, -1, 0],
+                      [0, 1,  0, 3],
+                      [0, 0,  0, 1]])
+    Output:
+        np.array([[1, 0,  0, 0, 0,  0],
+                  [0, 0, -1, 0, 0,  0],
+                  [0, 1,  0, 0, 0,  0],
+                  [0, 0,  3, 1, 0,  0],
+                  [3, 0,  0, 0, 0, -1],
+                  [0, 0,  0, 0, 1,  0]])
+    """
+    T = np.array(T)
+    R = T[0:3, 0:3]
+    p = T[0:3, 3]
+    return np.r_[np.c_[R, np.zeros((3, 3))],
+                 np.c_[np.dot(VecToso3(p), R), R]]
 
 def write_to_file(path, array):
         with open(path, 'w') as outfile:
             for slice_2d  in array:
                 np.savetxt(outfile, slice_2d, fmt='%f', delimiter= ',')
-
-def skew(vec):
-    """
-    Create a skew-symmetric matrix from a 3-element vector.
-    """
-    x, y, z = vec
-    return np.array([
-        [0, -z, y],
-        [z, 0, -x],
-        [-y, x, 0]])
 
 def to_rotation(q):
     """
@@ -49,7 +105,7 @@ def to_rotation(q):
     vec = q[:3]
     w = q[3]
 
-    R = (2*w*w-1)*np.identity(3) - 2*w*skew(vec) + 2*vec[:, None]*vec
+    R = (2*w*w-1)*np.identity(3) - 2*w*VecToso3(vec) + 2*vec[:, None]*vec
     return R
 
 def to_quaternion(R):
@@ -96,7 +152,39 @@ def ee_transformation_to_pose(T):
     euler = r.as_euler('zyx')
     return np.concatenate([pos,euler])
 
+def transformation_from_arm_to_world(T):
+    """!
+    @brief      transform a pose from arm to_world.
 
-# A = np.eye(4,4)
-# x = SE3(A)
-# x.animate(frame = 'A')
+    @return     4*4 SE3 matrix representing pose in world
+    """
+    T_arm_to_world = np.array([
+        [0, -1, 0, 0],
+        [1, 0, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]])
+
+    pose_world = np.matmul(T_arm_to_world, T)
+    return  pose_world
+
+
+def transformation_from_world_to_arm(T):
+    """!
+    @brief      transform a pose from arm to_world.
+
+    @return     4*4 SE3 matrix representing pose in world
+    """
+    T_world_to_arm = np.array([
+        [0, 1, 0, 0],
+        [-1, 0, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]])
+
+    pose_arm = np.matmul(T_world_to_arm, T)
+    return  pose_arm
+
+
+
+
+
+    
