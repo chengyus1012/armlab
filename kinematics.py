@@ -70,7 +70,7 @@ def IK_Base_frame(S, M, T, joint_angles_guess, e_w, e_v):
     cur_pose = FK_Baseframe(joint_angles, M, S)
 
 
-    error_SE3_b = np.matmu<l(InvOfTrans(cur_pose), T)
+    error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
     vector_twist_b = conv_se3_vec(logm(error_SE3_b))
     vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
 
