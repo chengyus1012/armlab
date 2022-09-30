@@ -54,9 +54,10 @@ hsv_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
 depth_data = cv2.imread(args["depth"], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
 top_depth = depth_data[top_board][depth_x_sample]
 bottom_depth = depth_data[bottom_board][depth_x_sample]
-delta_depth = (top_depth - bottom_depth) / float(top_board - bottom_board)
+delta_depth = (float(top_depth) - bottom_depth) / float(top_board - bottom_board)
+print(top_depth, bottom_depth, top_board, bottom_board, delta_depth, top_depth - bottom_depth, float(top_board - bottom_board))
 for r in range(top_board,depth_data.shape[0]):
-    depth_data[r,:] += (delta_depth * (r - top_board)).astype(np.uint16)
+    depth_data[r,:] += -(delta_depth * (r - top_board)).astype(np.uint16)
 
 if(args["colorize"]):
     clipped = np.clip(depth_data, 0, 2000).astype(np.uint8)

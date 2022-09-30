@@ -16,7 +16,7 @@ import rospy
 import time
 from functools import partial
 
-from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
+from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer, QCoreApplication)
 from PyQt4.QtGui import (QPixmap, QImage, QApplication, QWidget, QLabel,
                          QMainWindow, QCursor, QFileDialog)
 
@@ -298,7 +298,7 @@ class Gui(QMainWindow):
                 [0, 1, 0, object_position_arm[1]],
                 [-1, 0, 0, object_position_arm[2]],
                 [0, 0, 0, 1]])
-            total_dis = T[:,3] - object_position_arm[:,3]
+            total_dis = T[:,3] - object_position_arm
             num_mid_points = int(np.linalg.norm(total_dis)/100)
 
             for i in range(num_mid_points):
@@ -307,7 +307,7 @@ class Gui(QMainWindow):
                 cur_pose[:,3] += total_dis/(num_mid_points+1)
                 desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, cur_pose, joint_angle_guess, e_w=0.01, e_v=0.001)
                 if IK_flag:
-                    self.rxarm.set_positions_custom(desired_joint_angle) 
+                    self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents) 
                 else:
                     rospy.logerr("Something wrong with the IK")
 
@@ -318,7 +318,7 @@ class Gui(QMainWindow):
             T_grab[2,3] += 7
             desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, e_w=0.01, e_v=0.001)
             if IK_flag:
-                self.rxarm.set_positions_custom(desired_joint_angle)
+                self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
             else:
                 rospy.logerr("Something wrong with the IK")
             self.rxarm.close()
@@ -329,7 +329,7 @@ class Gui(QMainWindow):
             T_drop[2,3] += 16
             desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, e_w=0.01, e_v=0.001)
             if IK_flag:
-                self.rxarm.set_positions_custom(desired_joint_angle)
+                self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
             else:
                 rospy.logerr("Something wrong with the IK")
             self.rxarm.open()

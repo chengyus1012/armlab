@@ -8,4 +8,4 @@ sleep 5
 
 # gnome-terminal --tab -- roslaunch armlab.launch launch_station:=true
 
-./control_station.py -p config/rx200_pox.csv
+./control_station.py -p config/rx200_pox.csv -e config/latest_calibration.txt 
