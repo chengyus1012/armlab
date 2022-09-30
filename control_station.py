@@ -314,8 +314,9 @@ class Gui(QMainWindow):
             
         if self.camera.new_click == False:
             joint_angle_guess = self.rxarm.get_positions()
-            T[2,3] += 7
-            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T, joint_angle_guess, e_w=0.01, e_v=0.001)
+            T_grab = T.copy()
+            T_grab[2,3] += 7
+            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, e_w=0.01, e_v=0.001)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle)
             else:
@@ -324,14 +325,13 @@ class Gui(QMainWindow):
             self.camera.new_click = True
         else:
             joint_angle_guess = self.rxarm.get_positions()
-            T[2,3] += 16
-            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T, joint_angle_guess, e_w=0.01, e_v=0.001)
+            T_drop = T.copy()
+            T_drop[2,3] += 16
+            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, e_w=0.01, e_v=0.001)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle)
             else:
                 rospy.logerr("Something wrong with the IK")
-            self.rxarm.close()
-            self.camera.new_click = True
             self.rxarm.open()
             self.camera.new_click = False
 
