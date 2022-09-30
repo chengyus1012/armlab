@@ -36,15 +36,16 @@ def Jacobian_Baseframe_constrained(S, jointangles, upper_limits, lower_limits):
     @param jointangles A list of joint coordinates
     @return     Inverse of transformation matrix
     """
+    # print('upper limits:', upper_limits)
     Js = np.array(S).T.copy().astype(np.float)
     T = np.eye(4)
-    for i in range(1, len(jointangles)):
+    for i in range(1, len(jointangles)): 
         T = np.matmul(T, expm(construct_se3_matrix(np.array(S)[i - 1,:] \
                                 * jointangles[i - 1])))
         # print('Shapes:', Adjoint(T).shape, np.array(S)[i, :].shape)
         Js[:, i] = np.squeeze(np.matmul(Adjoint(T), np.array(S)[i, :].reshape((6,1))))
 
-    for i in range(len(upper_limits)):
+    for i in range(len(upper_limits)-1):
         if(jointangles[i]>upper_limits[i] or jointangles[i]<lower_limits[i]):
             Js[:, i] = np.zeros(6)
     return Js
@@ -57,7 +58,7 @@ def FK_Baseframe(joint_angle_dis, M, S_list):
     """
 
     temp = np.eye(4)
-    print(joint_angle_dis)
+    # print(joint_angle_dis)
     for i in range(5):
         # print('More shapes',i,construct_se3_matrix(S_list[i,:]).shape,end=', ')
         # print(construct_se3_matrix(S_list[i,:]).shape,joint_angle_dis[i])
@@ -131,7 +132,7 @@ def IK_Base_frame_constrained(S, M, T, joint_angles_guess, e_w, e_v, upper_limit
 
     joint_angles = np.array(joint_angles_guess).copy()
     maxiterations = 20
-    random_restart_num = 5
+    random_restart_num = 10
 
     cur_pose = FK_Baseframe(joint_angles, M, S)
 
@@ -152,32 +153,36 @@ def IK_Base_frame_constrained(S, M, T, joint_angles_guess, e_w, e_v, upper_limit
             vector_twist_b = conv_se3_vec(logm(error_SE3_b))
             vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
 
-            print('Errs',np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]), \
-            np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]))
+            # print('Errs',np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]), \
+            # np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]))
             err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
             or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
-    
-        if(not err):
-            return (joint_angles, not err)
-        else:
-            for j in range(random_restart_num):
-                joint_angles = np.random.uniform(lower_limits, upper_limits)
+
+            if(not err):
+                return (joint_angles, not err)
+        
+        for j in range(random_restart_num):
+            joint_angles = np.random.uniform(lower_limits[0:-1], upper_limits[0:-1])
+            print('random start', joint_angles)
+            cur_pose = FK_Baseframe(joint_angles, M, S)
+            error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+            vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+            vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+            for k in range(maxiterations):
+                joint_angles = joint_angles + np.squeeze(np.matmul(np.linalg.pinv(Jacobian_Baseframe_constrained(S, joint_angles, upper_limits, lower_limits)), vector_twist_s.reshape((6,1))))
                 cur_pose = FK_Baseframe(joint_angles, M, S)
                 error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
                 vector_twist_b = conv_se3_vec(logm(error_SE3_b))
                 vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
-                for k in range(maxiterations):
-                    joint_angles = joint_angles + np.squeeze(np.matmul(np.linalg.pinv(Jacobian_Baseframe_constrained(S, joint_angles, upper_limits, lower_limits)), vector_twist_s.reshape((6,1))))
-                    cur_pose = FK_Baseframe(joint_angles, M, S)
-                    error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
-                    vector_twist_b = conv_se3_vec(logm(error_SE3_b))
-                    vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
 
-                    err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
-                    or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
+                err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
+                or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
                 if(not err):
                     return (joint_angles, not err)
-            return (joint_angles, not err)
+        return (joint_angles, not err)
+    else:
+        return (joint_angles, True)
+
 
 
 

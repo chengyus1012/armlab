@@ -156,7 +156,7 @@ class RXArm(InterbotixRobot):
                                  accel_time=self.accel_time,
                                  blocking=False)
 
-    def set_positions_custom(self, joint_positions, gui_func=None):
+    def set_positions_custom(self, joint_positions, gui_func=None, sleep_move_time = True):
         """!
          @brief      Sets the positions.
 
@@ -169,10 +169,17 @@ class RXArm(InterbotixRobot):
                                  moving_time= move_time,
                                  accel_time=move_time/3,
                                  blocking=False)
-        for i in range(100):
-            rospy.sleep(move_time/100)
-            if gui_func is not None:
-                gui_func()
+        if(sleep_move_time == True):
+            for i in range(100):
+                rospy.sleep(move_time/100)
+                if gui_func is not None:
+                    gui_func()
+        else:
+            for i in range(100):
+                rospy.sleep(move_time/300)
+                if gui_func is not None:
+                    gui_func()
+
 
     def set_moving_time(self, moving_time):
         self.moving_time = moving_time

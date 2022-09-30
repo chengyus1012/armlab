@@ -24,7 +24,7 @@ from ui import Ui_MainWindow
 from rxarm import RXArm, RXArmThread
 from camera import Camera, VideoThread
 from state_machine import StateMachine, StateMachineThread
-from kinematics import FK_Baseframe, IK_Base_frame
+from kinematics import FK_Baseframe, IK_Base_frame, IK_Base_frame_constrained
 from modern_robotics import IKinSpace
 """ Radians to/from  Degrees conversions """
 D2R = np.pi / 180.0
@@ -165,9 +165,9 @@ class Gui(QMainWindow):
     ### TODO: output the rest of the orientation according to the convention chosen
     @pyqtSlot(list)
     def updateEndEffectorReadout(self, pos):
-        self.ui.rdoutX.setText(str("%+.2f mm" % (1000 * pos[0])))
-        self.ui.rdoutY.setText(str("%+.2f mm" % (1000 * pos[1])))
-        self.ui.rdoutZ.setText(str("%+.2f mm" % (1000 * pos[2])))
+        self.ui.rdoutX.setText(str("%+.2f mm" % (pos[0])))
+        self.ui.rdoutY.setText(str("%+.2f mm" % (pos[1])))
+        self.ui.rdoutZ.setText(str("%+.2f mm" % (pos[2])))
         self.ui.rdoutPhi.setText(str("%+.2f rad" % (pos[3])))
         self.ui.rdoutTheta.setText(str("%+.2f rad" % (pos[4])))
         self.ui.rdoutPsi.setText(str("%+.2f rad" % (pos[5])))
@@ -298,25 +298,50 @@ class Gui(QMainWindow):
                 [0, 1, 0, object_position_arm[1]],
                 [-1, 0, 0, object_position_arm[2]],
                 [0, 0, 0, 1]])
-            total_dis = T[:,3] - object_position_arm
-            num_mid_points = int(np.linalg.norm(total_dis)/100)
+            joint_angle_guess = self.rxarm.get_positions()
+            cur_pose = FK_Baseframe(joint_angle_guess, self.rxarm.M_matrix, self.rxarm.S_list)
+            total_dis = T[:,3] - cur_pose[:,3]
+            print('total dis',total_dis, np.linalg.norm(total_dis))
+
+            num_mid_points = int(np.linalg.norm(total_dis)/150)
+            temp_T = T.copy() 
+            temp_T[0:2,3] = cur_pose[0:2,3]
+            temp_T[2,3] += 50
 
             for i in range(num_mid_points):
                 joint_angle_guess = self.rxarm.get_positions()
                 cur_pose = FK_Baseframe(joint_angle_guess, self.rxarm.M_matrix, self.rxarm.S_list)
-                cur_pose[:,3] += total_dis/(num_mid_points+1)
-                desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, cur_pose, joint_angle_guess, e_w=0.01, e_v=0.001)
+                if(i == num_mid_points-1):
+                    temp_T = T.copy()
+                    temp_T[2,3] += 100
+                else:
+                    temp_T[0:2,3] = cur_pose[0:2,3] + total_dis[0:2]/(num_mid_points+1)
+                    if temp_T[0,3]<75:
+                        temp_T[0,3] += 150
+                desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
                 if IK_flag:
-                    self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents) 
+                    self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=False)
+                    print('mid points arrived', i)
                 else:
                     rospy.logerr("Something wrong with the IK")
+                
 
+            # temp_T = T.copy() 
+            # temp_T[:,3] = cur_pose[:,3]
+            # temp_T[2,3] += 100
+            # desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
+            # print('IK flag and joint angles for mid points', IK_flag, desired_joint_angle)
+            # if IK_flag:
+            #     self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=False)
+            #     print('mid points arrived')
+            # else:
+            #     rospy.logerr("Something wrong with the IK")
             
         if self.camera.new_click == False:
             joint_angle_guess = self.rxarm.get_positions()
             T_grab = T.copy()
-            T_grab[2,3] += 7
-            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, e_w=0.01, e_v=0.001)
+            T_grab[2,3] += 20
+            desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
             else:
@@ -326,8 +351,8 @@ class Gui(QMainWindow):
         else:
             joint_angle_guess = self.rxarm.get_positions()
             T_drop = T.copy()
-            T_drop[2,3] += 16
-            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, e_w=0.01, e_v=0.001)
+            T_drop[2,3] += 65
+            desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
             else:
