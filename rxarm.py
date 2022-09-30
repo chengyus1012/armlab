@@ -169,6 +169,7 @@ class RXArm(InterbotixRobot):
                                  moving_time= move_time,
                                  accel_time=move_time/3,
                                  blocking=False)
+        rospy.sleep(move_time/3)
 
     def set_moving_time(self, moving_time):
         self.moving_time = moving_time

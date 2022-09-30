@@ -2,6 +2,7 @@
 """!
 Main GUI for Arm lab
 """
+from http.client import TEMPORARY_REDIRECT
 import os
 
 from utility_functions import transformation_from_world_to_arm
@@ -23,7 +24,7 @@ from ui import Ui_MainWindow
 from rxarm import RXArm, RXArmThread
 from camera import Camera, VideoThread
 from state_machine import StateMachine, StateMachineThread
-from kinematics import IK_Base_frame
+from kinematics import FK_Baseframe, IK_Base_frame
 from modern_robotics import IKinSpace
 """ Radians to/from  Degrees conversions """
 D2R = np.pi / 180.0
@@ -297,20 +298,40 @@ class Gui(QMainWindow):
                 [0, 1, 0, object_position_arm[1]],
                 [-1, 0, 0, object_position_arm[2]],
                 [0, 0, 0, 1]])
+            total_dis = T[:,3] - object_position_arm[:,3]
+            num_mid_points = int(np.linalg.norm(total_dis)/100)
 
+            for i in range(num_mid_points):
+                joint_angle_guess = self.rxarm.get_positions()
+                cur_pose = FK_Baseframe(joint_angle_guess, self.rxarm.M_matrix, self.rxarm.S_list)
+                cur_pose[:,3] += total_dis/(num_mid_points+1)
+                desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, cur_pose, joint_angle_guess, e_w=0.01, e_v=0.001)
+                if IK_flag:
+                    self.rxarm.set_positions_custom(desired_joint_angle) 
+                else:
+                    rospy.logerr("Something wrong with the IK")
+
+            
+        if self.camera.new_click == False:
             joint_angle_guess = self.rxarm.get_positions()
+            T[2,3] += 7
             desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T, joint_angle_guess, e_w=0.01, e_v=0.001)
-            #IKinSpace(self.rxarm.S_list.T, self.rxarm.M_matrix, T, joint_angle_guess, eomg=0.01, ev=0.001)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle)
-                rospy.sleep(5)
             else:
                 rospy.logerr("Something wrong with the IK")
-
-        if self.camera.new_click == False:
             self.rxarm.close()
             self.camera.new_click = True
         else:
+            joint_angle_guess = self.rxarm.get_positions()
+            T[2,3] += 16
+            desired_joint_angle, IK_flag = IK_Base_frame(self.rxarm.S_list, self.rxarm.M_matrix, T, joint_angle_guess, e_w=0.01, e_v=0.001)
+            if IK_flag:
+                self.rxarm.set_positions_custom(desired_joint_angle)
+            else:
+                rospy.logerr("Something wrong with the IK")
+            self.rxarm.close()
+            self.camera.new_click = True
             self.rxarm.open()
             self.camera.new_click = False
 
