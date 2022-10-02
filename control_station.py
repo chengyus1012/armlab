@@ -295,6 +295,8 @@ class Gui(QMainWindow):
             object_position_camera = z * np.matmul(np.linalg.inv(K),np.array([pt.x(), pt.y(), 1]).T)
             object_position_world = np.matmul(H_camera_to_world, np.concatenate([object_position_camera,[1]]))
             object_position_arm = transformation_from_world_to_arm(object_position_world)
+            arm_x = object_position_arm[0]
+            arm_y = object_position_arm[1]
             # end effector pose in arm base frame
             if(object_position_arm[0]>275 or abs(object_position_arm[1])>250):
                 theta = np.arctan2(object_position_arm[1], object_position_arm[0])
@@ -366,10 +368,17 @@ class Gui(QMainWindow):
 
             # go through the home position
             
-            if total_dis_norm > 300:
-                joint_angle_guess = np.zeros(5)
+            if arm_x > 125 and arm_y>0:
+                joint_angle_guess = np.array([np.pi/4,0,0,0,0])
+            elif arm_x <125 and arm_y>0:
+                joint_angle_guess = np.array([np.pi/2,0,0,0,0])
+            elif arm_x>125 and arm_y<0:
+                joint_angle_guess = np.array([-np.pi/4,0,0,0,0])
+            elif arm_x<125 and arm_y<0:
+                joint_angle_guess = np.array([-np.pi/2,0,0,0,0])
                 
-            temp_T = T.copy()
+            # temp_T = T.copy()
+            temp_T[:,3] = T[:,3]
             temp_T[2,3] += 100
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
