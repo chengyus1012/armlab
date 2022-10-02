@@ -376,6 +376,8 @@ class Gui(QMainWindow):
                 joint_angle_guess = np.array([-np.pi/4,0,0,0,0])
             elif arm_x<125 and arm_y<0:
                 joint_angle_guess = np.array([-np.pi/2,0,0,0,0])
+            else:
+                joint_angle_guess = np.zeros(5)
                 
             # temp_T = T.copy()
             temp_T[:,3] = T[:,3]
