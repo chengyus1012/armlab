@@ -199,27 +199,27 @@ for contour in contours:
     # cnt_image[new_mask == 255] += 30 
 
     _, new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-    cv2.drawContours(cnt_image, new_contour, -1, (255,255,255), thickness=1)
+    for sub_cnt in new_contour:
+        cv2.drawContours(cnt_image, sub_cnt, -1, (255,255,255), thickness=1)
 
-    new_contour = new_contour[0]
-    rgb_color = retrieve_area_color(rgb_image, contour, colors)
-    color_index = retrieve_area_color_lab(lab_image, new_contour, lab_colors)
-    lab_color = color_dict.keys()[color_index]
+        rgb_color = retrieve_area_color(rgb_image, sub_cnt, colors)
+        color_index = retrieve_area_color_lab(lab_image, sub_cnt, lab_colors)
+        lab_color = color_dict.keys()[color_index]
 
-    color_index_hsv = retrieve_area_color_lab(hsv_image, new_contour, hsv_colors)
-    hsv_color = color_dict.keys()[color_index]
+        color_index_hsv = retrieve_area_color_lab(hsv_image, sub_cnt, hsv_colors)
+        hsv_color = color_dict.keys()[color_index]
 
-    theta = cv2.minAreaRect(new_contour)[2]
-    M = cv2.moments(new_contour)
-    if M['m00'] == 0:
-        continue
-    cx = int(M['m10']/M['m00'])
-    cy = int(M['m01']/M['m00'])
-    cv2.putText(cnt_image, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
-    cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
-    cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
+        theta = cv2.minAreaRect(sub_cnt)[2]
+        M = cv2.moments(sub_cnt)
+        if M['m00'] == 0:
+            continue
+        cx = int(M['m10']/M['m00'])
+        cy = int(M['m01']/M['m00'])
+        cv2.putText(cnt_image, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
+        cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
+        cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
 
-    print(rgb_color, lab_color, int(theta), cx, cy, top_depth)
+        print(rgb_color, lab_color, int(theta), cx, cy, top_depth)
 # #cv2.imshow("Threshold window", thresh)
 cv2.imshow("Image window", cnt_image)
 while True:
