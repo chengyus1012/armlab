@@ -69,7 +69,11 @@ def FK_Baseframe(joint_angle_dis, M, S_list):
     
     return ee_pose
 
-
+def damped_pseudoinverse_jacobian(J, gama = 0.01):
+    U,s,VT = np.linalg.svd(J)
+    temp = np.linalg.inv(np.diag(s) + gama*np.eye(s.shape))
+    damped_pseudoinverse = np.matmul(np.matmul(VT.T, temp), U.T)
+    return damped_pseudoinverse
 
 def IK_Base_frame(S, M, T, joint_angles_guess, e_w, e_v):
     """!
@@ -170,6 +174,79 @@ def IK_Base_frame_constrained(S, M, T, joint_angles_guess, e_w, e_v, upper_limit
             vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
             for k in range(maxiterations):
                 joint_angles = joint_angles + np.squeeze(np.matmul(np.linalg.pinv(Jacobian_Baseframe_constrained(S, joint_angles, upper_limits, lower_limits)), vector_twist_s.reshape((6,1))))
+                cur_pose = FK_Baseframe(joint_angles, M, S)
+                error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+                vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+                vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+
+                err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
+                or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
+                if(not err):
+                    return (joint_angles, not err)
+        return (joint_angles, not err)
+    else:
+        return (joint_angles, True)
+
+
+def IK_Base_frame_constrained_damped(S, M, T, joint_angles_guess, e_w, e_v, upper_limits, lower_limits):
+    """!
+    @brief      Computes inverse kinematics in the fixed base frame
+    @param S    The joint screw axes in the base frame when the
+                    manipulator is at the home position
+    @param M    Home position for the end effector
+    @param T    The desired end effector position
+    @param jointangles A list of joint coordinates
+    @param e_w  A small positive tolerance on the end-effector orientation error
+    @param e_v  A small positive tolerance on the end-effector linear position error
+    @return     Inverse of transformation matrix
+    """
+
+
+    joint_angles = np.array(joint_angles_guess).copy()
+    maxiterations = 20
+    random_restart_num = 10
+
+    cur_pose = FK_Baseframe(joint_angles, M, S)
+
+
+    error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+    vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+    vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+
+    err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
+          or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
+
+    if err:
+        for i in range(maxiterations):
+            J = Jacobian_Baseframe_constrained(S, joint_angles, upper_limits, lower_limits)
+            damped_pseudoinverse = damped_pseudoinverse_jacobian(J)
+            joint_angles = joint_angles + np.squeeze(np.matmul(damped_pseudoinverse, vector_twist_s.reshape((6,1))))
+
+            cur_pose = FK_Baseframe(joint_angles, M, S)
+            error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+            vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+            vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+
+            # print('Errs',np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]), \
+            # np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]))
+            err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
+            or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v
+
+            if(not err):
+                return (joint_angles, not err)
+        
+        for j in range(random_restart_num):
+            joint_angles = np.random.uniform(lower_limits[0:-1], upper_limits[0:-1])
+            print('random start', joint_angles)
+            cur_pose = FK_Baseframe(joint_angles, M, S)
+            error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+            vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+            vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+            for k in range(maxiterations):
+                J = Jacobian_Baseframe_constrained(S, joint_angles, upper_limits, lower_limits)
+                damped_pseudoinverse = damped_pseudoinverse_jacobian(J)
+                joint_angles = joint_angles + np.squeeze(np.matmul(damped_pseudoinverse, vector_twist_s.reshape((6,1))))
+                
                 cur_pose = FK_Baseframe(joint_angles, M, S)
                 error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
                 vector_twist_b = conv_se3_vec(logm(error_SE3_b))
