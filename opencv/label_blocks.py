@@ -10,6 +10,8 @@ import argparse
 import sys
 import cv2
 import numpy as np
+from collections import OrderedDict
+from scipy.spatial import distance as dist
 
 min_depth = 900.0
 max_depth = 1000.0
@@ -28,7 +30,32 @@ colors = list((
     {'id': 'violet', 'color': (100, 40, 80)})
 )
 
-print(colors)
+color_dict = OrderedDict({
+    'red': (50, 25, 150),
+    'orange': (30, 75, 150),
+    'yellow': (30, 150, 200),
+    'green': (20, 60, 20),
+    'blue': (100, 50, 0),
+    'violet': (100, 40, 80),
+    'pink': (80, 50, 150)})
+
+
+# lab_colors = np.zeros((len(colors), 1, 3), dtype="uint8")
+rgb_colors = np.expand_dims(np.array(color_dict.values(), dtype='uint8'), 1)
+lab_colors = cv2.cvtColor(rgb_colors, cv2.COLOR_BGR2LAB)
+hsv_colors = cv2.cvtColor(rgb_colors, cv2.COLOR_BGR2HSV)
+print(lab_colors)
+
+def retrieve_area_color_lab(data, contour, known_colors):
+    mask = np.zeros(data.shape[:2], dtype="uint8")
+    cv2.drawContours(mask, [contour], -1, 255, -1)
+    mean = cv2.mean(data, mask=mask)[:3]
+    min_dist = (np.inf, None)
+    for (i, color) in enumerate(known_colors):
+        d = np.linalg.norm(color[0] - np.array(mean))
+        if d < min_dist[0]:
+            min_dist = (d, i)
+    return min_dist[1]
 
 def retrieve_area_color(data, contour, labels):
     mask = np.zeros(data.shape[:2], dtype="uint8")
@@ -41,12 +68,14 @@ def retrieve_area_color(data, contour, labels):
             min_dist = (d, label["id"])
     return min_dist[1] 
 
+
 def retrieve_top_depth(depth, contour):
     mask = np.zeros(depth.shape, dtype="uint8")
     cv2.drawContours(mask, [contour], -1, 255, -1)
 
-    top_depth = np.percentile(depth[mask == 255], 75)
-    mask = (np.bitwise_and(mask == 255, depth <= top_depth)).astype(np.uint8) * 255
+    top_depth = np.percentile(depth[mask == 255], 20)
+    cv2.inRange
+    mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 4, top_depth + 4))) #.astype(np.uint8) * 255
     return top_depth, mask
 
 ap = argparse.ArgumentParser()
@@ -62,6 +91,7 @@ cnt_image = cv2.imread(args["image"])
 depth_data = cv2.imread(args["depth"], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
 top_depth = depth_data[top_board+10][depth_x_sample]
 bottom_depth = depth_data[bottom_board][depth_x_sample]
+print(top_depth, bottom_depth)
 delta_depth = (float(top_depth) - bottom_depth) / float(top_board - bottom_board)
 print(top_depth, bottom_depth, top_board, bottom_board, delta_depth, top_depth - bottom_depth, float(top_board - bottom_board))
 
@@ -76,9 +106,9 @@ cv2.namedWindow("Image window", cv2.WINDOW_NORMAL)
 #cv2.namedWindow("Threshold window", cv2.WINDOW_NORMAL)
 """mask out arm & outside board"""
 mask = np.zeros_like(depth_data, dtype=np.uint8)
-cv2.rectangle(mask, (200,120),(1100,695), 255, cv2.FILLED)
+cv2.rectangle(mask, (200,120),(1070,670), 255, cv2.FILLED)
 cv2.rectangle(mask, (560,374),(718,720), 0, cv2.FILLED)
-cv2.rectangle(cnt_image, (200,120),(1100,695), (255, 0, 0), 2)
+cv2.rectangle(cnt_image, (200,120),(1070,670), (255, 0, 0), 2)
 cv2.rectangle(cnt_image,(560,374),(718,720), (255, 0, 0), 2)
 rescaled_depth = ((1 -np.clip((depth_data - min_depth)/(max_depth-min_depth),0,1))*255).astype(np.uint8)
 
@@ -92,7 +122,9 @@ print(rescaled_depth.dtype)
 print(rescaled_depth.dtype)
 # rescaled_depth = cv2.GaussianBlur(rescaled_depth, (7,7), 0)
 rescaled_depth = cv2.medianBlur(rescaled_depth,5)
-depth_data = cv2.medianBlur(depth_data,5)
+blur_depth = cv2.medianBlur(depth_data,5)
+sharpen_kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+sharpen = cv2.filter2D(blur_depth, -1, sharpen_kernel)
 
 cv2.namedWindow('Rescaled')
 depth_color = cv2.cvtColor(rescaled_depth, cv2.COLOR_GRAY2BGR)
@@ -100,7 +132,10 @@ cv2.waitKey(0)
 print(depth_data.dtype, mask.dtype)
 
 # thresh = cv2.bitwise_and(depth_data, mask)
-thresh = cv2.bitwise_and(cv2.inRange(depth_data, lower, upper), mask)
+thresh = cv2.bitwise_and(cv2.inRange(sharpen, lower, upper), mask)
+# kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+# thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+
 # rescaled_depth = rescaled_depth[275:1100][120:720]
 adapt_thresh = cv2.adaptiveThreshold(rescaled_depth, 255,
 	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, -10)
@@ -131,10 +166,13 @@ edges = cv2.bitwise_or(cv2.inRange(abs_64x, 15, 100),cv2.inRange(abs_64y, 15, 10
 edges = cv2.bitwise_and(edges,mask)
 # print(np.unique(sobel_8u))
 cv2.imshow('Canny Edge Detection', edges)
-adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+_, adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 # cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
-contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+_, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
+contours = filter(lambda cnt: cv2.contourArea(cnt) > 30, contours)
+
+print(len(contours))
 # print(len(contours),contours)
 cv2.drawContours(cnt_image, contours, -1, (0,0,255), thickness=2)
 cv2.drawContours(depth_color, contours, -1, (0,0,255), thickness=2)
@@ -148,29 +186,40 @@ cv2.drawMarker(cnt_image,(depth_x_sample,bottom_board),(255,255,0))
 cv2.imshow('Rescaled',depth_color)
 cv2.setMouseCallback("Rescaled", mouse_callback)
 
+blurred = cv2.GaussianBlur(rgb_image, (5, 5), 0)
+lab_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB)
+hsv_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+
+
 for contour in contours:
     top_depth, new_mask = retrieve_top_depth(depth_data, contour)
     cv2.imshow('Mask',new_mask)
     cv2.waitKey(0)
-    white = np.ones_like(cnt_image) * 255
-    cnt_image[new_mask == 255] += 30 
+    # white = np.ones_like(cnt_image) * 255
+    # cnt_image[new_mask == 255] += 30 
 
-    new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    _, new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     cv2.drawContours(cnt_image, new_contour, -1, (255,255,255), thickness=1)
 
     new_contour = new_contour[0]
-    color = retrieve_area_color(rgb_image, new_contour, colors)
+    rgb_color = retrieve_area_color(rgb_image, contour, colors)
+    color_index = retrieve_area_color_lab(lab_image, new_contour, lab_colors)
+    lab_color = color_dict.keys()[color_index]
+
+    color_index_hsv = retrieve_area_color_lab(hsv_image, new_contour, hsv_colors)
+    hsv_color = color_dict.keys()[color_index]
+
     theta = cv2.minAreaRect(new_contour)[2]
     M = cv2.moments(new_contour)
     if M['m00'] == 0:
         continue
     cx = int(M['m10']/M['m00'])
     cy = int(M['m01']/M['m00'])
-    cv2.putText(cnt_image, color, (cx-30, cy+40), font, 1.0, (0,0,0), thickness=2)
-    cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 0.5, (255,255,255), thickness=2)
-    cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 0.5, (0,255,255), thickness=2)
+    cv2.putText(cnt_image, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
+    cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
+    cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
 
-    print(color, int(theta), cx, cy, top_depth)
+    print(rgb_color, lab_color, int(theta), cx, cy, top_depth)
 # #cv2.imshow("Threshold window", thresh)
 cv2.imshow("Image window", cnt_image)
 while True:
