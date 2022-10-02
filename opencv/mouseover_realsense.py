@@ -55,8 +55,13 @@ class ImageListener:
         d += depth_data[ypos+j][xpos+i]
         n += 1.0
     d = d/n
+    rgb = cv_image[ypos,xpos,:]
     output_uvd = "u:%d, v:%d, d:%.2f" % (xpos, ypos, d)
+    output_rgb = "b:%d, g:%d, r:%.2f" % (rgb[0], rgb[1], rgb[2])
+
     cv2.putText(cv_image, output_uvd, (10, 20), font, 0.5, (0,0,0))
+    cv2.putText(cv_image, output_rgb, (10, 40), font, 0.5, (0,0,0))
+
     cv2.imshow("Image window", cv_image)
     k = cv2.waitKey(1)
     if k == ord('s'): # wait for 's' key to save and exit    

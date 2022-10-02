@@ -48,16 +48,18 @@ class Camera():
         self.block_detections = np.array([])
 
         self.color_dict = OrderedDict({
-            'red': (50, 25, 150),
-            'orange': (30, 75, 150),
+            'red': (50, 25, 160),
+            'orange': (0, 65, 150),
             'yellow': (30, 150, 200),
-            'green': (20, 60, 20),
-            'blue': (100, 50, 0),
-            'violet': (100, 40, 80),
+            'dark_green': (60, 70, 35),
+            'light_green': (95, 134, 50),
+            'blue': (110, 65, 0),
+            'violet': (75, 50, 63),
             'pink': (80, 50, 150)})
 
         self.rgb_colors = np.expand_dims(np.array(self.color_dict.values(), dtype='uint8'), 1)
         self.lab_colors = cv2.cvtColor(self.rgb_colors, cv2.COLOR_BGR2LAB)
+        self.hsv_colors = cv2.cvtColor(self.rgb_colors, cv2.COLOR_BGR2HSV)
 
         self.mask = np.zeros_like(self.DepthFrameRaw, dtype=np.uint8)
         self.board_top = 120
@@ -76,14 +78,14 @@ class Camera():
         """!
         @brief      Process a video frame
         """
-        self.BlockImageFrame = self.VideoFrame.copy()
-        blurred = cv2.GaussianBlur(self.BlockImageFrame, (5, 5), 0)
-        lab_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB)
+        BlockImageFrame = self.VideoFrame.copy()
+        blurred = cv2.GaussianBlur(BlockImageFrame, (5, 5), 0)
+        lab_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
         font = cv2.FONT_HERSHEY_SIMPLEX
 
         for block in self.block_contours:
-            color_index = self.retrieve_area_color(lab_image, block, self.lab_colors)
-            lab_color = self.color_dict.keys()[color_index]
+            color_index, dist = self.retrieve_area_color(lab_image, block, self.hsv_colors)
+            min_color = self.color_dict.keys()[color_index]
 
             theta = cv2.minAreaRect(block)[2]
             M = cv2.moments(block)
@@ -92,15 +94,17 @@ class Camera():
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
 
-            cv2.putText(self.BlockImageFrame, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
-            cv2.putText(self.BlockImageFrame, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
+            cv2.putText(BlockImageFrame, min_color + " " + str(int(dist)) , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
+            cv2.putText(BlockImageFrame, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
             # cv2.putText(self.BlockImageFrame, str(int()), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
 
-        cv2.rectangle(self.BlockImageFrame, (self.board_left,self.board_top),(self.board_right,self.board_bottom), (255, 0, 0), 2)
-        cv2.rectangle(self.BlockImageFrame,(self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), (255, 0, 0), 2)
+        cv2.rectangle(BlockImageFrame, (self.board_left,self.board_top),(self.board_right,self.board_bottom), (255, 0, 0), 2)
+        cv2.rectangle(BlockImageFrame,(self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), (255, 0, 0), 2)
 
-        cv2.drawContours(self.BlockImageFrame, self.block_contours, -1,
+        cv2.drawContours(BlockImageFrame, self.block_contours, -1,
                          (255, 0, 255), 3)
+
+        self.BlockImageFrame = BlockImageFrame
         
 
 
@@ -269,7 +273,7 @@ class Camera():
             block_contours.extend(new_contours)
 
         block_contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, block_contours)
-        block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 30, block_contours)
+        block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, block_contours)
         
         self.block_contours = block_contours
 
@@ -288,7 +292,7 @@ class Camera():
             d = np.linalg.norm(color[0] - np.array(mean))
             if d < min_dist[0]:
                 min_dist = (d, i)
-        return min_dist[1]
+        return min_dist[1], min_dist[0]
 
     def retrieve_top_depth(self, depth, contour):
         mask = np.zeros(depth.shape, dtype="uint8")

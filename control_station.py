@@ -319,10 +319,15 @@ class Gui(QMainWindow):
             print('total dis',total_dis, total_dis_norm)
 
             num_mid_points = int(total_dis_norm/150)
-            temp_T = T.copy() 
-            temp_T[0:3,3] = cur_pose[0:3,3]
-            temp_T[2,3] += 50
-            
+            temp_T = cur_pose.copy()
+            temp_T[2,3] += 100
+            desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
+            if IK_flag:
+                self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
+                print('final mid points arrived')
+            else:
+                rospy.logerr("Something wrong with the IK")
+
             # just calculate the mid points
             # desired_joint_angle = joint_angle_guess
             # for i in range(num_mid_points):
@@ -379,8 +384,9 @@ class Gui(QMainWindow):
             else:
                 joint_angle_guess = np.zeros(5)
                 
-            # temp_T = T.copy()
-            temp_T[:,3] = T[:,3]
+            print('joint guess', joint_angle_guess)
+            temp_T = T.copy()
+            temp_T[:,3] = T[:,3] #.copy()
             temp_T[2,3] += 100
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
