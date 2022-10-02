@@ -71,7 +71,11 @@ def FK_Baseframe(joint_angle_dis, M, S_list):
 
 def damped_pseudoinverse_jacobian(J, gama = 0.01):
     U,s,VT = np.linalg.svd(J)
-    temp = np.linalg.inv(np.diag(s) + gama*np.eye(s.shape))
+    print('shape of u s v', U.shape, s.shape, VT.shape)
+    # s = np.append(s,0)
+    temp = np.linalg.inv(np.diag(s) + gama*np.eye(s.shape[0]))
+    temp = np.block([temp,np.zeros((5,1))])
+    print('shape of temp', temp.shape)
     damped_pseudoinverse = np.matmul(np.matmul(VT.T, temp), U.T)
     return damped_pseudoinverse
 
