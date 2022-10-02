@@ -24,7 +24,7 @@ from ui import Ui_MainWindow
 from rxarm import RXArm, RXArmThread
 from camera import Camera, VideoThread
 from state_machine import StateMachine, StateMachineThread
-from kinematics import FK_Baseframe, IK_Base_frame, IK_Base_frame_constrained
+from kinematics import *
 from modern_robotics import IKinSpace
 """ Radians to/from  Degrees conversions """
 D2R = np.pi / 180.0
@@ -329,7 +329,7 @@ class Gui(QMainWindow):
                     temp_T[0:2,3] = cur_pose[0:2,3] + total_dis[0:2]/(num_mid_points+1)
                     if temp_T[0,3]<75 and abs(temp_T[1,3])<50:
                         temp_T[0,3] += 150
-                desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, desired_joint_angle, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
+                desired_joint_angle, IK_flag = IK_Base_frame_constrained_damped(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, desired_joint_angle, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
                 if i == num_mid_points-1:
                     if IK_flag:
                         self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=False)
@@ -373,7 +373,7 @@ class Gui(QMainWindow):
             joint_angle_guess = self.rxarm.get_positions()
             T_grab = T.copy()
             T_grab[2,3] += 20
-            desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
+            desired_joint_angle, IK_flag = IK_Base_frame_constrained_damped(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
             else:
@@ -384,7 +384,7 @@ class Gui(QMainWindow):
             joint_angle_guess = self.rxarm.get_positions()
             T_drop = T.copy()
             T_drop[2,3] += 65
-            desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
+            desired_joint_angle, IK_flag = IK_Base_frame_constrained_damped(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
             else:
