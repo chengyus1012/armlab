@@ -315,7 +315,7 @@ class Gui(QMainWindow):
 
             num_mid_points = int(np.linalg.norm(total_dis)/150)
             temp_T = T.copy() 
-            temp_T[0:2,3] = cur_pose[0:2,3]
+            temp_T[0:3,3] = cur_pose[0:3,3]
             temp_T[2,3] += 50
             
             # just calculate the mid points
@@ -325,14 +325,18 @@ class Gui(QMainWindow):
                 if(i == num_mid_points-1):
                     temp_T = T.copy()
                     temp_T[2,3] += 100
+                    desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, desired_joint_angle, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
+                    if IK_flag:
+                        self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
+                        print('final mid points arrived', i)
+                    else:
+                        rospy.logerr("Something wrong with the IK")
                 else:
                     temp_T[0:2,3] = cur_pose[0:2,3] + total_dis[0:2]/(num_mid_points+1)
                     if temp_T[0,3]<75 and abs(temp_T[1,3])<50:
                         temp_T[0,3] += 150
-                desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, desired_joint_angle, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-                if i == num_mid_points-1:
+                    desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, desired_joint_angle, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
                     if IK_flag:
-                        self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
                         print('mid points arrived', i)
                     else:
                         rospy.logerr("Something wrong with the IK")
