@@ -324,7 +324,7 @@ class Gui(QMainWindow):
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
-                print('final mid points arrived')
+                print('lift up the end effector')
             else:
                 rospy.logerr("Something wrong with the IK")
 
@@ -373,16 +373,18 @@ class Gui(QMainWindow):
 
             # go through the home position
             
-            if arm_x > 125 and arm_y>0:
-                joint_angle_guess = np.array([np.pi/4,0,0,0,0])
-            elif arm_x <125 and arm_y>0:
-                joint_angle_guess = np.array([np.pi/2,0,0,0,0])
-            elif arm_x>125 and arm_y<0:
-                joint_angle_guess = np.array([-np.pi/4,0,0,0,0])
-            elif arm_x<125 and arm_y<0:
-                joint_angle_guess = np.array([-np.pi/2,0,0,0,0])
-            else:
-                joint_angle_guess = np.zeros(5)
+            # if arm_x > 125 and arm_y>0:
+            #     joint_angle_guess = np.array([np.pi/4,0,0,0,0])
+            # elif arm_x <125 and arm_y>0:
+            #     joint_angle_guess = np.array([np.pi/2,0,0,0,0])
+            # elif arm_x>125 and arm_y<0:
+            #     joint_angle_guess = np.array([-np.pi/4,0,0,0,0])
+            # elif arm_x<125 and arm_y<0:
+            #     joint_angle_guess = np.array([-np.pi/2,0,0,0,0])
+            # else:
+            #     joint_angle_guess = np.zeros(5)
+            base_angle = np.arctan2(arm_y, arm_x)
+            joint_angle_guess = np.array([base_angle,0,0,0,0])
                 
             print('joint guess', joint_angle_guess)
             temp_T = T.copy()
