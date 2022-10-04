@@ -21,4 +21,5 @@
         <!-- TODO use_time_based_profile false -->
     </include>
 
+    <!-- <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera ./config/camera_parameters.yaml" /> -->
 </launch>

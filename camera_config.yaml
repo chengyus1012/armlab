@@ -1,0 +1,151 @@
+aligned_depth_to_color:
+  image_raw:
+    compressed:
+      format: jpeg
+      jpeg_quality: 80
+      png_level: 9
+    compressedDepth:
+      depth_max: 10.0
+      depth_quantization: 100.0
+      png_level: 9
+    theora:
+      keyframe_frequency: 64
+      optimize_for: 1
+      quality: 31
+      target_bitrate: 800000
+color:
+  image_raw:
+    compressed:
+      format: jpeg
+      jpeg_quality: 80
+      png_level: 9
+    compressedDepth:
+      depth_max: 10.0
+      depth_quantization: 100.0
+      png_level: 9
+    theora:
+      keyframe_frequency: 64
+      optimize_for: 1
+      quality: 31
+      target_bitrate: 800000
+confidence:
+  image_rect_raw:
+    compressed:
+      format: jpeg
+      jpeg_quality: 80
+      png_level: 9
+    compressedDepth:
+      depth_max: 10.0
+      depth_quantization: 100.0
+      png_level: 9
+    theora:
+      keyframe_frequency: 64
+      optimize_for: 1
+      quality: 31
+      target_bitrate: 800000
+depth:
+  image_rect_raw:
+    compressed:
+      format: jpeg
+      jpeg_quality: 80
+      png_level: 9
+    compressedDepth:
+      depth_max: 10.0
+      depth_quantization: 100.0
+      png_level: 9
+    theora:
+      keyframe_frequency: 64
+      optimize_for: 1
+      quality: 31
+      target_bitrate: 800000
+realsense2_camera:
+  accel_fps: 100
+  accel_frame_id: camera_accel_frame
+  accel_optical_frame_id: camera_accel_optical_frame
+  align_depth: true
+  aligned_depth_to_color_frame_id: camera_aligned_depth_to_color_frame
+  aligned_depth_to_fisheye1_frame_id: camera_aligned_depth_to_fisheye1_frame
+  aligned_depth_to_fisheye2_frame_id: camera_aligned_depth_to_fisheye2_frame
+  aligned_depth_to_fisheye_frame_id: camera_aligned_depth_to_fisheye_frame
+  aligned_depth_to_infra1_frame_id: camera_aligned_depth_to_infra1_frame
+  aligned_depth_to_infra2_frame_id: camera_aligned_depth_to_infra2_frame
+  allow_no_texture_points: false
+  base_frame_id: camera_link
+  calib_odom_file: ''
+  clip_distance: -2.0
+  color_fps: 30
+  color_frame_id: camera_color_frame
+  color_height: 720
+  color_optical_frame_id: camera_color_optical_frame
+  color_width: 1280
+  confidence_fps: 30
+  confidence_height: 480
+  confidence_width: 640
+  depth_fps: 30
+  depth_frame_id: camera_depth_frame
+  depth_height: 768
+  depth_optical_frame_id: camera_depth_optical_frame
+  depth_width: 1024
+  device_type: ''
+  enable_accel: false
+  enable_color: true
+  enable_confidence: true
+  enable_depth: true
+  enable_fisheye: false
+  enable_fisheye1: false
+  enable_fisheye2: false
+  enable_gyro: false
+  enable_infra: false
+  enable_infra1: false
+  enable_infra2: false
+  enable_pointcloud: false
+  enable_pose: false
+  enable_sync: false
+  filters: temporal
+  fisheye1_frame_id: camera_fisheye1_frame
+  fisheye1_optical_frame_id: camera_fisheye1_optical_frame
+  fisheye2_frame_id: camera_fisheye2_frame
+  fisheye2_optical_frame_id: camera_fisheye2_optical_frame
+  fisheye_fps: 30
+  fisheye_frame_id: camera_fisheye_frame
+  fisheye_height: 480
+  fisheye_optical_frame_id: camera_fisheye_optical_frame
+  fisheye_width: 640
+  gyro_fps: 100
+  gyro_frame_id: camera_gyro_frame
+  gyro_optical_frame_id: camera_gyro_optical_frame
+  imu_optical_frame_id: camera_imu_optical_frame
+  infra1_frame_id: camera_infra1_frame
+  infra1_optical_frame_id: camera_infra1_optical_frame
+  infra2_frame_id: camera_infra2_frame
+  infra2_optical_frame_id: camera_infra2_optical_frame
+  infra_fps: 30
+  infra_height: 480
+  infra_rgb: false
+  infra_width: 640
+  initial_reset: false
+  json_file_path: ''
+  linear_accel_cov: 0.01
+  odom_frame_id: camera_odom_frame
+  ordered_pc: false
+  pointcloud_texture_index: 0
+  pointcloud_texture_stream: RS2_STREAM_COLOR
+  pose_frame_id: camera_pose_frame
+  pose_optical_frame_id: camera_pose_optical_frame
+  publish_odom_tf: true
+  publish_tf: true
+  reconnect_timeout: 6.0
+  rosbag_filename: ''
+  serial_no: ''
+  stereo_module:
+    exposure:
+      '1': 7500
+      '2': 1
+    gain:
+      '1': 16
+      '2': 16
+  tf_publish_rate: 0.0
+  topic_odom_in: odom_in
+  unite_imu_method: ''
+  usb_port_id: ''
+  wait_for_device_timeout: -1.0
