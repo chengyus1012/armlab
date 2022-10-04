@@ -73,9 +73,9 @@ def retrieve_top_depth(depth, contour):
     mask = np.zeros(depth.shape, dtype="uint8")
     cv2.drawContours(mask, [contour], -1, 255, -1)
 
-    top_depth = np.percentile(depth[mask == 255], 20)
+    top_depth = np.percentile(depth[mask == 255], 30)
     cv2.inRange
-    mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 4, top_depth + 4))) #.astype(np.uint8) * 255
+    mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 5, top_depth + 5))) #.astype(np.uint8) * 255
     return top_depth, mask
 
 ap = argparse.ArgumentParser()
@@ -170,12 +170,12 @@ _, adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_A
 # cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
 _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
-contours = filter(lambda cnt: cv2.contourArea(cnt) > 30, contours)
+contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, contours)
 
 print(len(contours))
 # print(len(contours),contours)
-cv2.drawContours(cnt_image, contours, -1, (0,0,255), thickness=2)
-cv2.drawContours(depth_color, contours, -1, (0,0,255), thickness=2)
+# cv2.drawContours(cnt_image, contours, -1, (0,0,255), thickness=2)
+# cv2.drawContours(depth_color, contours, -1, (0,0,255), thickness=2)
 
 cv2.drawContours(cnt_image, adapt_contours, -1, (127,127,127), thickness=1)
 cv2.drawContours(depth_color, adapt_contours, -1, (127,127,127), thickness=1)
@@ -190,6 +190,8 @@ blurred = cv2.GaussianBlur(rgb_image, (5, 5), 0)
 lab_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB)
 hsv_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
+all_contours = []
+print("Now: ", len(contours))
 
 for contour in contours:
     top_depth, new_mask = retrieve_top_depth(depth_data, contour)
@@ -199,27 +201,48 @@ for contour in contours:
     # cnt_image[new_mask == 255] += 30 
 
     _, new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-    for sub_cnt in new_contour:
-        cv2.drawContours(cnt_image, sub_cnt, -1, (255,255,255), thickness=1)
 
-        rgb_color = retrieve_area_color(rgb_image, sub_cnt, colors)
-        color_index = retrieve_area_color_lab(lab_image, sub_cnt, lab_colors)
-        lab_color = color_dict.keys()[color_index]
+    all_contours.extend(new_contour)
 
-        color_index_hsv = retrieve_area_color_lab(hsv_image, sub_cnt, hsv_colors)
-        hsv_color = color_dict.keys()[color_index]
+all_boxes = []
+for i in range(len(all_contours)):
+    epsilon = 0.1*cv2.arcLength(all_contours[i],True)
+    rect = cv2.minAreaRect(all_contours[i])
+    box = cv2.boxPoints(rect)
+    all_boxes.append(np.int0(box))
 
-        theta = cv2.minAreaRect(sub_cnt)[2]
-        M = cv2.moments(sub_cnt)
-        if M['m00'] == 0:
-            continue
-        cx = int(M['m10']/M['m00'])
-        cy = int(M['m01']/M['m00'])
-        cv2.putText(cnt_image, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
-        cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
-        cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
+    all_contours[i] = (cv2.approxPolyDP(all_contours[i],epsilon,True))
 
-        print(rgb_color, lab_color, int(theta), cx, cy, top_depth)
+print(all_contours)
+print("Now: ", len(all_contours))
+cv2.drawContours(cnt_image, all_boxes, -1, (0,0,127), thickness=1)
+
+for sub_cnt in all_contours:
+    cv2.drawContours(cnt_image, [sub_cnt], -1, (255,255,255), thickness=1)
+
+    rgb_color = retrieve_area_color(rgb_image, sub_cnt, colors)
+    color_index = retrieve_area_color_lab(lab_image, sub_cnt, lab_colors)
+    lab_color = color_dict.keys()[color_index]
+
+    color_index_hsv = retrieve_area_color_lab(hsv_image, sub_cnt, hsv_colors)
+    hsv_color = color_dict.keys()[color_index]
+
+    rect = cv2.minAreaRect(sub_cnt)
+    box = np.int0(cv2.boxPoints(rect))
+    cv2.drawContours(cnt_image, [box], -1, (0,255,0), thickness=1)
+
+    theta = rect[2]
+    M = cv2.moments(sub_cnt)
+    if M['m00'] == 0:
+        continue
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
+    cv2.putText(cnt_image, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
+    cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
+    cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
+
+    print(rgb_color, lab_color, int(theta), cx, cy, top_depth)
+
 # #cv2.imshow("Threshold window", thresh)
 cv2.imshow("Image window", cnt_image)
 while True:

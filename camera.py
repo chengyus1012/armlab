@@ -16,6 +16,7 @@ from apriltag_ros.msg import *
 from cv_bridge import CvBridge, CvBridgeError
 from collections import OrderedDict
 from utility_functions import ee_transformation_to_pose
+from scipy.spatial import distance
 
 class Camera():
     """!
@@ -48,14 +49,21 @@ class Camera():
         self.block_detections = np.array([])
 
         self.color_dict = OrderedDict({
-            'red': (50, 25, 160),
-            'orange': (0, 65, 150),
-            'yellow': (30, 150, 200),
-            'dark_green': (60, 70, 35),
-            'light_green': (95, 134, 50),
-            'blue': (110, 65, 0),
-            'violet': (75, 50, 63),
-            'pink': (80, 50, 150)})
+            'red': (0, 20, 180),
+            'orange': (0, 70, 205),
+            'yellow': (0, 170, 255),
+            'dark_green': (30, 110, 20),
+            'light_green': (50, 135, 40),
+            'blue': (110, 68, 10),
+            'violet': (90, 70, 105)})
+
+            # 'red': (0, 30, 180),
+            # 'orange': (0, 90, 200),
+            # 'yellow': (0, 175, 240),
+            # # 'dark_green': (40, 100, 47),
+            # 'light_green': (61, 130, 85),
+            # 'blue': (100, 70, 53),
+            # 'violet': (80, 60, 100)})
 
         self.rgb_colors = np.expand_dims(np.array(self.color_dict.values(), dtype='uint8'), 1)
         self.lab_colors = cv2.cvtColor(self.rgb_colors, cv2.COLOR_BGR2LAB)
@@ -80,11 +88,11 @@ class Camera():
         """
         BlockImageFrame = self.VideoFrame.copy()
         blurred = cv2.GaussianBlur(BlockImageFrame, (5, 5), 0)
-        lab_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+        lab_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2LAB)
         font = cv2.FONT_HERSHEY_SIMPLEX
 
         for block in self.block_contours:
-            color_index, dist = self.retrieve_area_color(lab_image, block, self.hsv_colors)
+            color_index, dist = self.retrieve_area_color(lab_image, block, self.lab_colors)
             min_color = self.color_dict.keys()[color_index]
 
             theta = cv2.minAreaRect(block)[2]
@@ -243,7 +251,7 @@ class Camera():
 
         """
         min_depth = 500.0
-        max_depth = 950.0
+        max_depth = 958.0
 
         depth_x_sample = 375
 
@@ -265,7 +273,6 @@ class Camera():
         thresh = cv2.bitwise_and(cv2.inRange(sharpen, min_depth, max_depth), self.mask)
 
         _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-
         block_contours = []
         for contour in contours:
             top_depth, new_mask = self.retrieve_top_depth(depth_data, contour)
@@ -275,6 +282,13 @@ class Camera():
         block_contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, block_contours)
         block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, block_contours)
         
+        for i in range(len(block_contours)):
+            epsilon = 0.1*cv2.arcLength(block_contours[i],True)
+
+            block_contours[i] = (cv2.approxPolyDP(block_contours[i],epsilon,True))
+            
+
+
         self.block_contours = block_contours
 
 
@@ -289,7 +303,9 @@ class Camera():
         mean = cv2.mean(data, mask=mask)[:3]
         min_dist = (np.inf, None)
         for (i, color) in enumerate(known_colors):
-            d = np.linalg.norm(color[0] - np.array(mean))
+            print("Color:",color[0])
+            # d = np.linalg.norm(color[0] - np.array(mean))
+            d = distance.euclidean(color[0], mean)
             if d < min_dist[0]:
                 min_dist = (d, i)
         return min_dist[1], min_dist[0]
@@ -299,7 +315,6 @@ class Camera():
         cv2.drawContours(mask, [contour], -1, 255, -1)
 
         top_depth = np.percentile(depth[mask == 255], 20)
-        cv2.inRange
         mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 4, top_depth + 4))) #.astype(np.uint8) * 255
         return top_depth, mask
 
