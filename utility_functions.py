@@ -4,7 +4,7 @@ import imp
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from modern_robotics import IKinBody, JacobianBody
-from scipy.linalg import expm, logm
+from scipy.linalg import expm, logm, block_diag
 
 # from spatialmath import *
 
@@ -26,6 +26,23 @@ def construct_se3_matrix(vector):
     S = np.block([[w,v],[np.zeros((1,4))]])
     # print("SE3:", vector, S,sep="\n")
     return S
+
+def construct_SI_mat(inertia_vector, mass):
+    """!
+    @brief      Utility function for constructing spatial inertia matrix.
+
+    @return     6*6 matrix
+    """
+    inertia_mat = np.array([
+        [inertia_vector[0], inertia_vector[3], inertia_vector[4]],
+        [inertia_vector[3], inertia_vector[1], inertia_vector[5]],
+        [inertia_vector[4], inertia_vector[5], inertia_vector[2]]
+    ])
+    mass_mat = mass*np.eye(3)
+    return block_diag(inertia_mat, mass_mat)
+
+
+
 
 def InvOfTrans(T):
     """!
