@@ -25,7 +25,7 @@ from rxarm import RXArm, RXArmThread
 from camera import Camera, VideoThread
 from state_machine import StateMachine, StateMachineThread
 from kinematics import *
-from modern_robotics import IKinSpace
+from modern_robotics import GravityForces
 """ Radians to/from  Degrees conversions """
 D2R = np.pi / 180.0
 R2D = 180.0 / np.pi
@@ -414,6 +414,8 @@ class Gui(QMainWindow):
             T_grab = T.copy()
             T_grab[2,3] += 20
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
+            extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9.8]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
+            print('extra_torque', extra_torque)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
             else:

@@ -11,6 +11,8 @@ import numpy as np
 from scipy.linalg import expm
 from utility_functions import *
 
+
+
 def Jacobian_Baseframe(S, jointangles):
     """!
     @brief      Computes the fixed base frame Jacobian
@@ -170,7 +172,7 @@ def IK_Base_frame_constrained(S, M, T, joint_angles_guess, e_w, e_v, upper_limit
                 return (joint_angles, not err)
         
         for j in range(random_restart_num):
-            joint_angles = np.array([joint_angles_guess[0].copy(), np.random.uniform(lower_limits[1:-1], upper_limits[1:-1])])
+            joint_angles = np.append(joint_angles_guess[0].copy(), np.random.uniform(lower_limits[1:-1], upper_limits[1:-1]))
             print('random start', joint_angles)
             cur_pose = FK_Baseframe(joint_angles, M, S)
             error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
