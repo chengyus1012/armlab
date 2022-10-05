@@ -104,35 +104,35 @@ class RXArm(InterbotixRobot):
         self.Mlist = np.array([self.M01, self.M12, self.M23, self.M34, self.M45, self.M56])
 
         # position and orientation of inertial frame in the corresponding link frame
-        self.T1 = np.eye(4)
+        self.T1 = np.eye(4) # shoulder_link
         self.T1[0:3, 0:3] = Rz(np.pi/2)
         self.T1[0:3,3] = np.array([-0.0000853644, 0.0000173690, 0.0132005000])*1000
         self.m1 = 0.257774 # mass
         self.inertial_vector1 = np.array([0.0002663000, 0.0004428000, 0.0004711000, 0.0000000009, 0.0000000511, 0.0000004416])*1e6
         self.G1 = np.matmul(np.matmul(Adjoint(self.T1), construct_SI_mat(self.inertial_vector1, self.m1)), Adjoint(self.T1).T)
 
-        self.T2 = np.eye(4)
+        self.T2 = np.eye(4) # upper_arm_link
         self.T2[0:3, 0:3] = Rz(np.pi/2)
         self.T2[0:3,3] = np.array([0.0119513000, -0.0001169230, 0.1394300000])*1000
         self.m2 = 0.297782 # mass
         self.inertial_vector2 = np.array([0.0017100000, 0.0016310000, 0.0001478000, -0.0000009773, 0.0000020936, 0.0002132000])*1e6
         self.G2 = np.matmul(np.matmul(Adjoint(self.T2), construct_SI_mat(self.inertial_vector2, self.m2)), Adjoint(self.T2).T)
 
-        self.T3 = np.eye(4)
+        self.T3 = np.eye(4) # forearm_link
         self.T3[0:3, 0:3] = Rz(np.pi/2)
         self.T3[0:3,3] = np.array([0.1147450000, -0.0000938376, 0.0000000000])*1000
         self.m3 = 0.258863 # mass
         self.inertial_vector3 = np.array([0.0010550000,0.0000642100,0.0010760000,-0.0000018286,0.0000000000,0.0000000000])*1e6
         self.G3 = np.matmul(np.matmul(Adjoint(self.T3), construct_SI_mat(self.inertial_vector3, self.m3)), Adjoint(self.T3).T)
 
-        self.T4 = np.eye(4)
+        self.T4 = np.eye(4) # wrist_link
         self.T4[0:3, 0:3] = np.matmul(Rz(np.pi/2), Ry(np.pi))
         self.T4[0:3,3] = np.array([0.0423600000, 0.0000104110, -0.0105770000])*1000
         self.m4 = 0.084957 # mass
         self.inertial_vector4 = np.array([0.0000308200,0.0000282200,0.0000315200,0.0000000191,0.0000000023,0.0000025481])*1e6
         self.G4 = np.matmul(np.matmul(Adjoint(self.T4), construct_SI_mat(self.inertial_vector4, self.m4)), Adjoint(self.T4).T)
 
-        self.T5 = np.eye(4)
+        self.T5 = np.eye(4) # gripper_link
         self.T5[0:3, 0:3] = Rz(np.pi/2)
         self.T5[0:3,3] = np.array([0.0216300000, 0.0000000000, 0.0114100000])*1000
         self.m5 = 0.072885 # mass
