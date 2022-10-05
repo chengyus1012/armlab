@@ -70,6 +70,9 @@ class Camera():
         self.hsv_colors = cv2.cvtColor(self.rgb_colors, cv2.COLOR_BGR2HSV)
 
         self.mask = np.zeros_like(self.DepthFrameRaw, dtype=np.uint8)
+        self.arm_mask = np.zeros_like(self.DepthFrameRaw, dtype=np.uint8)
+        self.arm_base_mask = np.zeros_like(self.DepthFrameRaw, dtype=np.uint8)
+
         self.board_top = 120
         self.board_bottom = 670
         self.board_left = 200
@@ -78,6 +81,8 @@ class Camera():
         self.arm_right = 718
         self.arm_top = 374
         self.arm_bottom = 720
+        self.latest_ee_pose = [0,10,10]
+        # self.arm_base_mask = 
         cv2.rectangle(self.mask, (self.board_left,self.board_top),(self.board_right,self.board_bottom), 255, cv2.FILLED)
         cv2.rectangle(self.mask, (self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), 0, cv2.FILLED)
 

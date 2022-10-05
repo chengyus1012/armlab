@@ -104,13 +104,20 @@ for r in range(top_board,depth_data.shape[0]):
 # print(np.unique(depth_data))
 cv2.namedWindow("Image window", cv2.WINDOW_NORMAL)
 #cv2.namedWindow("Threshold window", cv2.WINDOW_NORMAL)
+ee_pose = np.array([0, 10, 10])
+
+arm_base = np.array([[565,720],[565, 600],[540, 570],[540, 505], [595, 455], [675, 455], [730,505], [730,570], [700,600], [700,720]])
 """mask out arm & outside board"""
 mask = np.zeros_like(depth_data, dtype=np.uint8)
 cv2.rectangle(mask, (200,120),(1070,670), 255, cv2.FILLED)
-cv2.rectangle(mask, (560,374),(718,720), 0, cv2.FILLED)
+# cv2.rectangle(mask, (560,374),(718,720), 0, cv2.FILLED)
+cv2.fillPoly(mask, [arm_base], 0)
 cv2.rectangle(cnt_image, (200,120),(1070,670), (255, 0, 0), 2)
-cv2.rectangle(cnt_image,(560,374),(718,720), (255, 0, 0), 2)
+# cv2.rectangle(cnt_image,(560,374),(718,720), (255, 0, 0), 2)
+cv2.polylines(cnt_image, [arm_base], True, (255,0,0), 2)
 rescaled_depth = ((1 -np.clip((depth_data - min_depth)/(max_depth-min_depth),0,1))*255).astype(np.uint8)
+depth_color = cv2.cvtColor(rescaled_depth, cv2.COLOR_GRAY2BGR)
+cv2.polylines(depth_color, [arm_base], True, (255,0,0), 2)
 
 def mouse_callback(event, x, y, flags, params):
     if event == 2:
@@ -127,7 +134,6 @@ sharpen_kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
 sharpen = cv2.filter2D(blur_depth, -1, sharpen_kernel)
 
 cv2.namedWindow('Rescaled')
-depth_color = cv2.cvtColor(rescaled_depth, cv2.COLOR_GRAY2BGR)
 cv2.waitKey(0)
 print(depth_data.dtype, mask.dtype)
 
@@ -166,9 +172,9 @@ edges = cv2.bitwise_or(cv2.inRange(abs_64x, 15, 100),cv2.inRange(abs_64y, 15, 10
 edges = cv2.bitwise_and(edges,mask)
 # print(np.unique(sobel_8u))
 cv2.imshow('Canny Edge Detection', edges)
-_, adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 # cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
-_, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
 contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, contours)
 
@@ -200,7 +206,7 @@ for contour in contours:
     # white = np.ones_like(cnt_image) * 255
     # cnt_image[new_mask == 255] += 30 
 
-    _, new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     all_contours.extend(new_contour)
 

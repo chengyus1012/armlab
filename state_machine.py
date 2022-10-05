@@ -74,7 +74,6 @@ class StateMachine():
 
                     This is run in its own thread.
 
-                    TODO: Add states and funcitons as needed.
         """
         if self.next_state == "initialize_rxarm":
             self.initialize_rxarm()
@@ -106,6 +105,20 @@ class StateMachine():
         if self.next_state == "clear":
             self.clear()
 
+        if self.next_state == "task1":
+            self.task1()
+
+        if self.next_state == "task2":
+            self.task2()
+
+        if self.next_state == "task3":
+            self.task3()
+
+        if self.next_state == "task4":
+            self.task4()
+
+        if self.next_state == "task5":
+            self.task5()
 
     """Functions run for each state"""
 
@@ -327,7 +340,41 @@ class StateMachine():
         self.recorded_positions = []
         self.next_state = "idle"
 
+    def task1(self):
+        self.status_message = "State: Performing task 1"
+        self.current_state = "task1"
 
+        self.status_message = "State: Task 1 complete"
+        self.next_state = "idle"
+
+    def task2(self):
+        self.status_message = "State: Performing task 2"
+        self.current_state = "task2"
+
+        self.status_message = "State: Task 2 complete"
+        self.next_state = "idle"
+
+    def task3(self):
+        self.status_message = "State: Performing task 3"
+        self.current_state = "task3"
+
+        self.status_message = "State: Task 3 complete"
+        self.next_state = "idle"
+
+    def task4(self):
+        self.status_message = "State: Performing task 4"
+        self.current_state = "task4"
+
+        self.status_message = "State: Task 4 complete"
+        self.next_state = "idle"
+
+    def task5(self):
+        self.status_message = "State: Performing task 5"
+        self.current_state = "task5"
+
+        self.status_message = "State: Task 5 complete"
+        self.next_state = "idle"
+        
     def apriltag_callback(self, tags):
         self.latest_tags = tags
 
