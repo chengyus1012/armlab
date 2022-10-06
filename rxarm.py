@@ -64,6 +64,15 @@ class RXArm(InterbotixRobot):
 
         @param      dh_config_file  The configuration file that defines the DH parameters for the robot
         """
+        # self.shoulder_diff = 0.0028790661356
+        # self.elbow_diff = 0.001215238360935
+
+        self.shoulder_diff = -3*D2R
+        self.elbow_diff = 4*D2R
+        self.wran_diff = 3*D2R
+
+
+        
         super().__init__(robot_name="rx200", mrd=mrd)
         self.joint_names = self.resp.joint_names
         self.num_joints = 5
@@ -226,6 +235,9 @@ class RXArm(InterbotixRobot):
         cur_pos = np.array(self.get_positions())
         max_delta = max(abs(np.array(joint_positions) - cur_pos))
         move_time = max_delta / self.max_angular_vel
+        joint_positions[1]+=self.shoulder_diff
+        joint_positions[2]+=self.elbow_diff
+        joint_positions[3]+=self.wran_diff
         self.set_joint_positions(joint_positions,
                                  moving_time= move_time,
                                  accel_time=move_time/3,

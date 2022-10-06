@@ -346,7 +346,7 @@ class Camera():
             #     if (math.isclose(bottom_height,0,abs_tol=1.0)):
             #         pass
 
-            block = Block(block_position_world, theta, size=is_large, ignore=False, color=block_color)
+            block = Block(block_position_world, theta, is_large=is_large, ignore=False, color=block_color)
             detected_blocks.append(block)      
 
         return detected_blocks

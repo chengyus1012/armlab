@@ -414,11 +414,12 @@ class Gui(QMainWindow):
             T_grab = T.copy()
             T_grab[2,3] += 20
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-            extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9.8]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
+            extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
             with open('extra_torque.txt', 'a') as outfile1:    
                 np.savetxt(outfile1, [extra_torque], fmt='%f', delimiter= ',')
             print('extra_torque', extra_torque)
             if IK_flag:
+                
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
                 actual_angle = self.rxarm.get_positions()
                 angle_difference = desired_joint_angle - actual_angle
@@ -434,7 +435,7 @@ class Gui(QMainWindow):
             T_drop = T.copy()
             T_drop[2,3] += 65
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-            extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9.8]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
+            extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
             with open('extra_torque.txt', 'a') as outfile1:    
                 np.savetxt(outfile1, [extra_torque], fmt='%f', delimiter= ',')
             print('extra_torque', extra_torque)

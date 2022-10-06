@@ -344,14 +344,41 @@ class StateMachine():
         self.status_message = "State: Performing event 1"
         self.current_state = "event1"
         
+        small_store_positions = np.array([[-250, -125, 0], # 1
+                                            [-200, -125, 0], # 2
+                                            [-150, -125, 0], # 2
+                                            [-100, -125, 0], # 2
+                                            [-275, -50, 0], # 2
+                                            [-225, -50, 0], # 2
+                                            [-175, -50, 0], # 2
+                                            [-125, -50, 0]])# 7 # in world frame
+
+        large_store_positions = small_store_positions.copy()
+        large_store_positions[:,0] *= -1
         task_complete = False
         while not task_complete:
 
             self.stow_arm()
 
             self.current_ee_pose = self.rxarm.get_ee_pose()[:3,3]
+            aggregate_blocks = []
+            for i in range(5):
+                current_blocks = self.camera.detect_blocks(self.current_ee_pose)
+                self.current_blocks = current_blocks
+                # aggregate_blocks.append(current_blocks)
 
-            self.current_blocks = self.camera.detect_blocks(self.current_ee_pose)
+            self.current_blocks.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2, block.top_face_position[1]**2) )
+
+            for block in self.current_blocks:
+
+                if block.is_large:
+                    # self.rxarm.move_above_vertical(block.top_face_position, block.angle)
+                    self.rxarm.grab_from_above(block.top_face_position,block.angle)
+                    self.rxarm.move_above_vertical(block.top_face_position)
+                    # self.rxarm.retract
+                else:
+                    self.rxarm.grab_from_above(block.top_face_position)
+
 
             if self.next_state == "estop":
                 return

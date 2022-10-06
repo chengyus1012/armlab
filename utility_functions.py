@@ -225,10 +225,10 @@ class Block:
     SMALL_MM = 24.0 # Actual size in mm
     LARGE_MM = 38.1 # Actual size in mm
 
-    def __init__(self, top_face_position, angle, size, ignore=False, contour=None, color=None, possible_blocks_beneath = []):
+    def __init__(self, top_face_position, angle, is_large, ignore=False, contour=None, color=None, possible_blocks_beneath = []):
         self.top_face_position = top_face_position # Defined to center of top face
         self.angle = angle
-        self.size = size
+        self.is_large = is_large
         self.ignore = ignore
         self.color = color
         self.possible_blocks_beneath = possible_blocks_beneath
