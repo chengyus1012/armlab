@@ -361,7 +361,7 @@ class Camera():
         mean = cv2.mean(data, mask=mask)[:3]
         min_dist = (np.inf, None)
         for (i, color) in enumerate(known_colors):
-            print("Color:",color[0])
+            # print("Color:",color[0])
             # d = np.linalg.norm(color[0] - np.array(mean))
             d = distance.euclidean(color[0], mean)
             if d < min_dist[0]:
