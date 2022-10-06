@@ -39,11 +39,16 @@ color_dict = OrderedDict({
     'violet': (100, 40, 80),
     'pink': (80, 50, 150)})
 
+intrinsic_matrix = np.reshape(np.array([918.3599853515625, 0.0, 661.1923217773438, 0.0, 919.1538696289062, 356.59722900390625, 0.0, 0.0, 1.0]),(3,3))
+
+extrinsic_matrix = np.reshape(np.array([9.999436850003154964e-01, 5.017415973011800367e-03, 9.351596919399868951e-03, 3.094781717322216963e+01, 5.066855095725968268e-03, -9.999732738855644509e-01, -5.270530715697490688e-03, 1.767679037142445395e+02, 9.324902542551256890e-03, 5.317617092266137616e-03, -9.999423829106516282e-01, 9.737577359332713058e+02, 0.000000000000000000e+00, 0.000000000000000000e+00, 0.000000000000000000e+00, 1.000000000000000000e+00]),(4,4))
+
 
 # lab_colors = np.zeros((len(colors), 1, 3), dtype="uint8")
 rgb_colors = np.expand_dims(np.array(color_dict.values(), dtype='uint8'), 1)
 lab_colors = cv2.cvtColor(rgb_colors, cv2.COLOR_BGR2LAB)
 hsv_colors = cv2.cvtColor(rgb_colors, cv2.COLOR_BGR2HSV)
+
 print(lab_colors)
 
 def retrieve_area_color_lab(data, contour, known_colors):
@@ -110,7 +115,19 @@ arm_base = np.array([[565,720],[565, 600],[540, 570],[540, 505], [595, 455], [67
 """mask out arm & outside board"""
 mask = np.zeros_like(depth_data, dtype=np.uint8)
 cv2.rectangle(mask, (200,120),(1070,670), 255, cv2.FILLED)
+
+ee_pose_camera = np.matmul(extrinsic_matrix, np.concatenate([ee_pose,[1]]))[:3]
+ee_pose_pixel = np.matmul(np.block([(1 / (ee_pose_camera[2])) * intrinsic_matrix, np.zeros((3,1))]), np.append(ee_pose_camera,1)).astype(np.uint8)[0:2]
+print("POSE",ee_pose_camera,ee_pose_pixel)
+# Format is ((Center X, Center Y), (Width, Height), Angle (degrees))
+
+arm_rect = (())
+# arm_bounding_box =  np.int0(cv2.boxPoints((rect)))
+
+# arm_mask = np.int0(cv2.boxPoints())
+
 # cv2.rectangle(mask, (560,374),(718,720), 0, cv2.FILLED)
+
 cv2.fillPoly(mask, [arm_base], 0)
 cv2.rectangle(cnt_image, (200,120),(1070,670), (255, 0, 0), 2)
 # cv2.rectangle(cnt_image,(560,374),(718,720), (255, 0, 0), 2)
@@ -170,8 +187,12 @@ abs_64y = np.absolute(sobel_64y)
 # sobel_8u = np.uint16(abs_64)
 edges = cv2.bitwise_or(cv2.inRange(abs_64x, 15, 100),cv2.inRange(abs_64y, 15, 100))
 edges = cv2.bitwise_and(edges,mask)
+
+corners = cv2.cornerHarris(rescaled_depth,5,3,0.1)
+depth_color[corners>0.01*corners.max()]=[0,255,0]
+
 # print(np.unique(sobel_8u))
-cv2.imshow('Canny Edge Detection', edges)
+cv2.imshow('Canny Edge Detection', rescaled_depth)
 adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 # cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
 contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -188,6 +209,7 @@ cv2.drawContours(depth_color, adapt_contours, -1, (127,127,127), thickness=1)
 
 cv2.drawMarker(cnt_image,(depth_x_sample,top_board),(255,255,0))
 cv2.drawMarker(cnt_image,(depth_x_sample,bottom_board),(255,255,0))
+cv2.drawMarker(cnt_image,tuple(ee_pose_pixel),(0,255,0),markerSize=30)
 
 cv2.imshow('Rescaled',depth_color)
 cv2.setMouseCallback("Rescaled", mouse_callback)
@@ -217,6 +239,8 @@ for i in range(len(all_contours)):
     box = cv2.boxPoints(rect)
     all_boxes.append(np.int0(box))
 
+    print("Box:",rect,box)
+
     all_contours[i] = (cv2.approxPolyDP(all_contours[i],epsilon,True))
 
 print(all_contours)
@@ -243,9 +267,12 @@ for sub_cnt in all_contours:
         continue
     cx = int(M['m10']/M['m00'])
     cy = int(M['m01']/M['m00'])
+
+    size = M['m00']
     cv2.putText(cnt_image, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
     cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
     cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
+    cv2.putText(cnt_image, str(int(size)), (cx-30, cy-40), font, 1.0, (255,0,0), thickness=2)
 
     print(rgb_color, lab_color, int(theta), cx, cy, top_depth)
 

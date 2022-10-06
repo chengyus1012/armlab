@@ -105,20 +105,20 @@ class StateMachine():
         if self.next_state == "clear":
             self.clear()
 
-        if self.next_state == "task1":
-            self.task1()
+        if self.next_state == "event1":
+            self.event1()
 
-        if self.next_state == "task2":
-            self.task2()
+        if self.next_state == "event2":
+            self.event2()
 
-        if self.next_state == "task3":
-            self.task3()
+        if self.next_state == "event3":
+            self.event3()
 
-        if self.next_state == "task4":
-            self.task4()
+        if self.next_state == "event4":
+            self.event4()
 
-        if self.next_state == "task5":
-            self.task5()
+        if self.next_state == "event5":
+            self.event5()
 
     """Functions run for each state"""
 
@@ -266,7 +266,7 @@ class StateMachine():
         """!
         @brief      Detect the blocks
         """
-        rospy.sleep(1)
+        pass
 
     def initialize_rxarm(self):
         """!
@@ -340,39 +340,51 @@ class StateMachine():
         self.recorded_positions = []
         self.next_state = "idle"
 
-    def task1(self):
-        self.status_message = "State: Performing task 1"
-        self.current_state = "task1"
+    def event1(self):
+        self.status_message = "State: Performing event 1"
+        self.current_state = "event1"
+        
+        task_complete = False
+        while not task_complete:
 
-        self.status_message = "State: Task 1 complete"
+            self.stow_arm()
+
+            self.current_ee_pose = self.rxarm.get_ee_pose()[:3,3]
+
+            self.current_blocks = self.camera.detect_blocks(self.current_ee_pose)
+
+            if self.next_state == "estop":
+                return
+
+        self.status_message = "State: Event 1 complete"
         self.next_state = "idle"
 
-    def task2(self):
-        self.status_message = "State: Performing task 2"
-        self.current_state = "task2"
+    def event2(self):
+        self.status_message = "State: Performing event 2"
+        self.current_state = "event2"
 
-        self.status_message = "State: Task 2 complete"
+        self.status_message = "State: Event 2 complete"
         self.next_state = "idle"
 
-    def task3(self):
-        self.status_message = "State: Performing task 3"
-        self.current_state = "task3"
+    def event3(self):
+        self.status_message = "State: Performing event 3"
+        self.current_state = "event3"
 
-        self.status_message = "State: Task 3 complete"
+        self.status_message = "State: Event 3 complete"
         self.next_state = "idle"
 
-    def task4(self):
-        self.status_message = "State: Performing task 4"
-        self.current_state = "task4"
+    def event4(self):
+        self.status_message = "State: Performing event 4"
+        self.current_state = "event4"
 
-        self.status_message = "State: Task 4 complete"
+        self.status_message = "State: Event 4 complete"
         self.next_state = "idle"
 
-    def task5(self):
-        self.status_message = "State: Performing task 5"
-        self.current_state = "task5"
+    def event5(self):
+        self.status_message = "State: Performing event 5"
+        self.current_state = "event5"
 
-        self.status_message = "State: Task 5 complete"
+        self.status_message = "State: Event 5 complete"
         self.next_state = "idle"
         
     def apriltag_callback(self, tags):
@@ -462,6 +474,15 @@ class StateMachine():
         R, _ = cv2.Rodrigues(R_exp)
         return np.row_stack((np.column_stack((R, t)), (0, 0, 0, 1)))
 
+    def stow_arm(self):
+        moving_time = 1.5
+        accel_time = 0.75
+        self.rxarm.go_to_home_pose(moving_time=moving_time,
+                             accel_time=accel_time,
+                             blocking=True)
+        self.rxarm.go_to_sleep_pose(moving_time=moving_time,
+                              accel_time=accel_time,
+                              blocking=True)
 
 class StateMachineThread(QThread):
     """!

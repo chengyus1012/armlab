@@ -5,6 +5,7 @@ Class to represent the camera.
 import cv2
 import time
 import numpy as np
+import math
 from PyQt4.QtGui import QImage
 from PyQt4.QtCore import QThread, pyqtSignal, QTimer
 import rospy
@@ -15,7 +16,7 @@ from sensor_msgs.msg import CameraInfo
 from apriltag_ros.msg import *
 from cv_bridge import CvBridge, CvBridgeError
 from collections import OrderedDict
-from utility_functions import ee_transformation_to_pose
+from utility_functions import ee_transformation_to_pose, Block
 from scipy.spatial import distance
 
 class Camera():
@@ -279,10 +280,12 @@ class Camera():
 
         _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         block_contours = []
+        top_depths = []
         for contour in contours:
             top_depth, new_mask = self.retrieve_top_depth(depth_data, contour)
             _, new_contours, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
             block_contours.extend(new_contours)
+            top_depths.extend([top_depth]*len(new_contours))
 
         block_contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, block_contours)
         block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, block_contours)
@@ -292,11 +295,61 @@ class Camera():
 
             block_contours[i] = (cv2.approxPolyDP(block_contours[i],epsilon,True))
             
-
-
         self.block_contours = block_contours
 
+        return block_contours, top_depths
 
+    def getBlockColors(self, block_contours):
+        BlockImageFrame = self.VideoFrame.copy()
+
+        blurred = cv2.GaussianBlur(BlockImageFrame, (5, 5), 0)
+        lab_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2LAB)
+        block_colors = []
+        for block in block_contours:
+            color_index, dist = self.retrieve_area_color(lab_image, block, self.lab_colors)
+            min_color = self.color_dict.keys()[color_index]
+
+            block_colors.append(min_color)
+
+        return block_colors
+       
+
+    def detect_blocks(self, ee_pose):
+        depth_block_contours, top_depths = self.detectBlocksInDepthImage()
+
+        block_colors = self.getBlockColors(depth_block_contours)
+
+        K = self.intrinsic_matrix
+        H_camera_to_world = self.extrinsic_matrix
+
+        detected_blocks = []
+        for (block_contour, top_depth, block_color) in zip(depth_block_contours, top_depths,block_colors):
+            theta = cv2.minAreaRect(block_contour)[2]
+            M = cv2.moments(block_contour)
+            if M['m00'] == 0:
+                continue
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01']/M['m00'])
+            z = top_depth # TODO May want to sample from depth frame instead of using top depth
+
+            block_position_camera = z * np.matmul(np.linalg.inv(K),np.array([cx, cy, 1]).T)
+            block_position_world = np.matmul(H_camera_to_world, np.concatenate([block_position_camera,[1]]))[:3]
+
+            is_large = M['m00'] > Block.LARGE_BLOCK_THRESHOLD
+
+            bottom_height = block_position_world[2] - (Block.LARGE_MM if is_large else Block.SMALL_MM)
+            # for num_blocks_beneath in range(0,4): # Minimum no blocks beneath to maximum 4 tall stack, 3 beneath
+            #     for num_small_blocks in range(num_blocks_beneath + 1):
+            #         num_large_blocks = num_blocks_beneath - num_small_blocks
+            #         stack_height = Block.SMALL_MM * num_small_blocks + Block.LARGE_MM * num_large_blocks
+
+            #     if (math.isclose(bottom_height,0,abs_tol=1.0)):
+            #         pass
+
+            block = Block(block_position_world, theta, size=is_large, ignore=False, color=block_color)
+            detected_blocks.append(block)      
+
+        return detected_blocks
 
     def saveImage(self):
         cv2.imwrite("data/rgb_image.png", cv2.cvtColor(self.VideoFrame, cv2.COLOR_RGB2BGR))
