@@ -303,7 +303,10 @@ class RXArm(InterbotixRobot):
                 [0, 0, 0, 1]])
         print('Arms',arm_y, arm_x)
         base_angle = np.arctan2(arm_y, arm_x)
-        joint_angle_guess = np.array([base_angle,0,0,0,0])
+        if vertical:
+            joint_angle_guess = np.array([base_angle,0,0,-np.pi/2,0])
+        else:
+            joint_angle_guess = np.array([base_angle,0,0,0,0])
             
         print('joint guess', joint_angle_guess)
         temp_T = self.T.copy()
@@ -340,9 +343,11 @@ class RXArm(InterbotixRobot):
             # with open('angle_difference.txt', 'a') as outfile2:    
             #     np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
             # print('angle difference', angle_difference)
+            self.close()
         else:
             rospy.logerr("Something wrong with the IK")
-        self.close()
+        return IK_flag
+        
 
     def place_on(self, store_positions , angle, safe=False, vertical=True):
         joint_angle_guess = self.get_positions()
@@ -358,17 +363,32 @@ class RXArm(InterbotixRobot):
             # with open('angle_difference.txt', 'a') as outfile2:    
             #     np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
             # print('angle difference', angle_difference)
+            self.open()
         else:
             rospy.logerr("Something wrong with the IK")
-        self.open()
+        return IK_flag
+        
 
-    def go_to_safe(self):
-        self.set_positions_custom(self.safe_position)
-    
+    def go_to_safe(self, center=True):
+        cur_pos = np.array(self.get_positions())
+        upright = self.safe_position.copy()
+        upright[0] = cur_pos[0]
+        self.set_joint_positions(upright,
+                                 moving_time=0.8,
+                                 accel_time=0.4,
+                                 blocking=True)
+        if (center):
+            self.set_joint_positions(self.safe_position,
+                                    moving_time=0.3,
+                                    accel_time=0.15,
+                                    blocking=True)
+
+
     def reachable(self, top_face_position, vertical=True, above=True, is_large=True):
         top_face_position = np.append(top_face_position,[1])
         object_position_arm = transformation_from_world_to_arm(top_face_position)
-        if(np.hypot(object_position_arm[0], object_position_arm[1]) > np.hypot(250,275)):
+        max_height_cone = 225
+        if(np.hypot(object_position_arm[0], object_position_arm[1]) > np.hypot(250,275)*((max_height_cone - object_position_arm[2])/max_height_cone)):
             return False
         else:
             return True
@@ -377,7 +397,7 @@ class RXArm(InterbotixRobot):
     def stow_arm(self):
         moving_time = 1.5
         accel_time = 0.75
-        self.go_to_safe()
+        self.go_to_safe(center=True)
         
         desired_pose = np.array([0, self.resp.sleep_pos[1]+(5*D2R), 0, 0, 0])
         self.publish_positions(desired_pose, moving_time, accel_time)
