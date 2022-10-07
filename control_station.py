@@ -298,13 +298,15 @@ class Gui(QMainWindow):
             arm_x = object_position_arm[0]
             arm_y = object_position_arm[1]
             # end effector pose in arm base frame
-            if(object_position_arm[0]>275 or abs(object_position_arm[1])>250):
+            if(np.hypot(object_position_arm[0], object_position_arm[1]) > np.hypot(250,275)):
                 theta = np.arctan2(object_position_arm[1], object_position_arm[0])
                 T = np.array([
-                [np.cos(theta), -np.sin(theta), 0, object_position_arm[0]],
-                [np.sin(theta), np.cos(theta), 0, object_position_arm[1]],
-                [0, 0, 1, object_position_arm[2]],
-                [0, 0, 0, 1]])
+                    [np.cos(theta), -np.sin(theta), 0, object_position_arm[0]],
+                    [np.sin(theta), np.cos(theta), 0, object_position_arm[1]],
+                    [0, 0, 1, object_position_arm[2]],
+                    [0, 0, 0, 1]])
+
+                Outter_area = True
             else:
                 T = np.array([
                     [0, 0, 1, object_position_arm[0]],
@@ -312,12 +314,16 @@ class Gui(QMainWindow):
                     [-1, 0, 0, object_position_arm[2]],
                     [0, 0, 0, 1]]) # destination
 
+                Outter_area = False
+
             joint_angle_guess = self.rxarm.get_positions()
             cur_pose = FK_Baseframe(joint_angle_guess, self.rxarm.M_matrix, self.rxarm.S_list)
             total_dis = T[:,3] - cur_pose[:,3]
             total_dis_norm = np.linalg.norm(total_dis)
             print('total dis',total_dis, total_dis_norm)
-
+            if not Outter_area:
+                T[1,3] *= 1.04
+                T[0,3] = T[0,3]*1.02 - 0.5
             num_mid_points = int(total_dis_norm/150)
             temp_T = cur_pose.copy()
             temp_T[2,3] += 100
@@ -390,6 +396,7 @@ class Gui(QMainWindow):
             temp_T = T.copy()
             temp_T[:,3] = T[:,3] #.copy()
             temp_T[2,3] += 100
+            print('final mid point', temp_T[:,3])
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
@@ -413,13 +420,13 @@ class Gui(QMainWindow):
             joint_angle_guess = self.rxarm.get_positions()
             T_grab = T.copy()
             T_grab[2,3] += 15
-            T_grab[1,3] *= 1.04
-            T_grab[0,3] = T_grab[0,3]*1.02 - 0.5
+            
+            print(T_grab[:,3])
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-            extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
-            with open('extra_torque.txt', 'a') as outfile1:    
-                np.savetxt(outfile1, [extra_torque], fmt='%f', delimiter= ',')
-            print('extra_torque', extra_torque)
+            # extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
+            # with open('extra_torque.txt', 'a') as outfile1:    
+            #     np.savetxt(outfile1, [extra_torque], fmt='%f', delimiter= ',')
+            # print('extra_torque', extra_torque)
             if IK_flag:
                 
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
@@ -436,13 +443,14 @@ class Gui(QMainWindow):
             joint_angle_guess = self.rxarm.get_positions()
             T_drop = T.copy()
             T_drop[2,3] += 60
-            T_drop[1,3] *= 1.04
-            T_drop[0,3] = T_drop[0,3]*1.02 - 0.5
+            # T_drop[1,3] *= 1.04
+            # T_drop[0,3] = T_drop[0,3]*1.02 - 0.5
+            print(T_drop[:,3])
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-            extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
-            with open('extra_torque.txt', 'a') as outfile1:    
-                np.savetxt(outfile1, [extra_torque], fmt='%f', delimiter= ',')
-            print('extra_torque', extra_torque)
+            # extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
+            # with open('extra_torque.txt', 'a') as outfile1:    
+            #     np.savetxt(outfile1, [extra_torque], fmt='%f', delimiter= ',')
+            # print('extra_torque', extra_torque)
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
                 actual_angle = self.rxarm.get_positions()
