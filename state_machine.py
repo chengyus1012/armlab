@@ -380,6 +380,7 @@ class StateMachine():
                 self.rxarm.go_to_safe()
 
                 if block.is_large:
+                    
                     self.rxarm.move_above(block.top_face_position, block.angle, vertical=True)
                     self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=True)
                     self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90, safe=False, vertical=True)
