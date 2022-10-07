@@ -412,7 +412,9 @@ class Gui(QMainWindow):
         if self.camera.new_click == False:
             joint_angle_guess = self.rxarm.get_positions()
             T_grab = T.copy()
-            T_grab[2,3] += 20
+            T_grab[2,3] += 15
+            T_grab[1,3] *= 1.04
+            T_grab[0,3] = T_grab[0,3]*1.02 - 0.5
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
             with open('extra_torque.txt', 'a') as outfile1:    
@@ -433,7 +435,9 @@ class Gui(QMainWindow):
         else:
             joint_angle_guess = self.rxarm.get_positions()
             T_drop = T.copy()
-            T_drop[2,3] += 65
+            T_drop[2,3] += 60
+            T_drop[1,3] *= 1.04
+            T_drop[0,3] = T_drop[0,3]*1.02 - 0.5
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
             extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
             with open('extra_torque.txt', 'a') as outfile1:    

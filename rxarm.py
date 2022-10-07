@@ -69,7 +69,7 @@ class RXArm(InterbotixRobot):
 
         self.shoulder_diff = -3*D2R
         self.elbow_diff = 4*D2R
-        self.wran_diff = 3*D2R
+        self.wran_diff = 5.5*D2R
 
 
         
@@ -235,8 +235,8 @@ class RXArm(InterbotixRobot):
         cur_pos = np.array(self.get_positions())
         max_delta = max(abs(np.array(joint_positions) - cur_pos))
         move_time = max_delta / self.max_angular_vel
-        joint_positions[1]+=self.shoulder_diff
-        joint_positions[2]+=self.elbow_diff
+        # joint_positions[1]+=self.shoulder_diff
+        # joint_positions[2]+=self.elbow_diff
         joint_positions[3]+=self.wran_diff
         self.set_joint_positions(joint_positions,
                                  moving_time= move_time,
