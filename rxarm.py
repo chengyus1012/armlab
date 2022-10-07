@@ -18,7 +18,7 @@ from kinematics import FK_dh, FK_pox, get_pose_from_T
 import time
 import csv
 from builtins import super
-from PyQt4.QtCore import QThread, pyqtSignal, QTimer
+from PyQt4.QtCore import QThread, pyqtSignal, QTimer, QCoreApplication
 from interbotix_robot_arm import InterbotixRobot
 from interbotix_descriptions import interbotix_mr_descriptions as mrd
 from config_parse import *
@@ -151,7 +151,7 @@ class RXArm(InterbotixRobot):
 
         self.Glist = np.array([self.G1, self.G2, self.G3, self.G4, self.G5])
 
-
+        self.safe_position = np.array([0.0, -20.0, 70.0, -90.0, 0.0])
 
 
         #POX params
@@ -293,6 +293,7 @@ class RXArm(InterbotixRobot):
             print('final mid points arrived')
         else:
             rospy.logerr("Something wrong with the IK")
+        return IK_flag
 
     def grab(self, top_face_position, angle, is_large, vertical=True):
         if self.gripper_state:
@@ -338,7 +339,30 @@ class RXArm(InterbotixRobot):
         else:
             rospy.logerr("Something wrong with the IK")
         self.open()
+
+    def go_to_safe(self):
+        self.set_positions_custom(self.safe_position)
+    
+    def reachable(self, top_face_position, vertical=True, above=True, is_large=True):
+        object_position_arm = transformation_from_world_to_arm(top_face_position)
+        if(np.hypot(object_position_arm[0], object_position_arm[1]) > np.hypot(250,275)):
+            return False
+        else:
+            return True
+
+    
+    def stow_arm(self):
+        moving_time = 1.5
+        accel_time = 0.75
+        self.go_to_safe()
         
+        desired_pose = np.array([0, self.resp.sleep_pos[1], 0, 0, 0])
+        self.publish_positions(desired_pose, moving_time, accel_time)
+
+
+
+
+
 
 
 
