@@ -26,6 +26,7 @@ from sensor_msgs.msg import JointState
 import rospy
 from scipy.linalg import expm
 from utility_functions import *
+from kinematics import *
 """
 TODO: Implement the missing functions and add anything you need to support them
 """
@@ -252,6 +253,93 @@ class RXArm(InterbotixRobot):
                 rospy.sleep(move_time/300)
                 if gui_func is not None:
                     gui_func()
+
+    # some functions for tasks
+    def move_above(self, top_face_position, angle, vertical=True):
+        """!
+         @brief      Sets the positions.
+
+         @param      top_face_position  xyz in world frame
+         """
+        object_position_arm = transformation_from_world_to_arm(top_face_position)
+        arm_x = object_position_arm[0]
+        arm_y = object_position_arm[1]
+        if vertical:
+            self.T = np.array([
+                    [0, np.cos(angle), -np.sin(angle), object_position_arm[0]],
+                    [0, np.sin(angle), np.cos(angle), object_position_arm[1]],
+                    [-1, 0, 0, object_position_arm[2]],
+                    [0, 0, 0, 1]]) # destination
+            self.T[1,3] *= 1.04
+            self.T[0,3] = self.T[0,3]*1.02 - 0.5
+        else:
+            theta = np.arctan2(object_position_arm[1], object_position_arm[0])
+            self.T = np.array([
+                [np.cos(theta), -np.sin(theta), 0, object_position_arm[0]],
+                [np.sin(theta), np.cos(theta), 0, object_position_arm[1]],
+                [0, 0, 1, object_position_arm[2]],
+                [0, 0, 0, 1]])
+
+        base_angle = np.arctan2(arm_y, arm_x)
+        joint_angle_guess = np.array([base_angle,0,0,0,0])
+            
+        print('joint guess', joint_angle_guess)
+        temp_T = self.T.copy()
+        temp_T[2,3] += 100
+        print('final mid point', temp_T[:,3])
+        desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
+        if IK_flag:
+            self.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
+            print('final mid points arrived')
+        else:
+            rospy.logerr("Something wrong with the IK")
+
+    def grab(self, top_face_position, angle, is_large, vertical=True):
+        if self.gripper_state:
+            self.open()
+        joint_angle_guess = self.get_positions()
+        T_grab = self.T.copy()
+        if is_large:
+            T_grab[2,3] += 15
+        else:
+            T_grab[2,3] += 25
+        
+        print(T_grab[:,3])
+        desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
+        # extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
+        # with open('extra_torque.txt', 'a') as outfile1:    
+        #     np.savetxt(outfile1, [extra_torque], fmt='%f', delimiter= ',')
+        # print('extra_torque', extra_torque)
+        if IK_flag:
+            self.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
+            # actual_angle = self.get_positions()
+            # angle_difference = desired_joint_angle - actual_angle
+            # with open('angle_difference.txt', 'a') as outfile2:    
+            #     np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
+            # print('angle difference', angle_difference)
+        else:
+            rospy.logerr("Something wrong with the IK")
+        self.close()
+
+    def place_on(self, store_positions , angle, safe=False, vertical=True):
+        joint_angle_guess = self.get_positions()
+        T_drop = self.T.copy()
+        T_drop[2,3] += 60
+        print(T_drop[:,3])
+        desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
+
+        if IK_flag:
+            self.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
+            # actual_angle = self.rxarm.get_positions()
+            # angle_difference = desired_joint_angle - actual_angle
+            # with open('angle_difference.txt', 'a') as outfile2:    
+            #     np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
+            # print('angle difference', angle_difference)
+        else:
+            rospy.logerr("Something wrong with the IK")
+        self.open()
+        
+
 
 
     def set_moving_time(self, moving_time):
