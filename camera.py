@@ -74,18 +74,20 @@ class Camera():
         self.arm_mask = np.zeros_like(self.DepthFrameRaw, dtype=np.uint8)
         self.arm_base_mask = np.zeros_like(self.DepthFrameRaw, dtype=np.uint8)
 
-        self.board_top = 120
-        self.board_bottom = 670
-        self.board_left = 200
-        self.board_right = 1070
+        self.board_top = 110
+        self.board_bottom = 680
+        self.board_left = 190
+        self.board_right = 1080
         self.arm_left = 560
         self.arm_right = 718
         self.arm_top = 374
         self.arm_bottom = 720
         self.latest_ee_pose = [0,10,10]
         # self.arm_base_mask = 
+        self.arm_base_poly = np.array([[565,720],[565, 600],[540, 570],[540, 505], [595, 455], [675, 455], [730,505], [730,570], [700,600], [700,720]])
         cv2.rectangle(self.mask, (self.board_left,self.board_top),(self.board_right,self.board_bottom), 255, cv2.FILLED)
-        cv2.rectangle(self.mask, (self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), 0, cv2.FILLED)
+        # cv2.rectangle(self.mask, (self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), 0, cv2.FILLED)
+        cv2.fillPoly(self.mask, [self.arm_base_poly], 0)
 
 
     def processVideoFrame(self):
@@ -113,7 +115,8 @@ class Camera():
             # cv2.putText(self.BlockImageFrame, str(int()), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
 
         cv2.rectangle(BlockImageFrame, (self.board_left,self.board_top),(self.board_right,self.board_bottom), (255, 0, 0), 2)
-        cv2.rectangle(BlockImageFrame,(self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), (255, 0, 0), 2)
+        # cv2.rectangle(BlockImageFrame,(self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), (255, 0, 0), 2)
+        cv2.polylines(BlockImageFrame, [self.arm_base_poly], True, (255,0,0), 2)
 
         cv2.drawContours(BlockImageFrame, self.block_contours, -1,
                          (255, 0, 255), 3)

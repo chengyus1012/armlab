@@ -193,9 +193,9 @@ depth_color[corners>0.01*corners.max()]=[0,255,0]
 
 # print(np.unique(sobel_8u))
 cv2.imshow('Canny Edge Detection', rescaled_depth)
-adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+_, adapt_contours, _ = cv2.findContours(adapt_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 # cv2.drawContours(cnt_image, contours, -1, (0,255,255), thickness=1)
-contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+_, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
 contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, contours)
 
@@ -228,7 +228,7 @@ for contour in contours:
     # white = np.ones_like(cnt_image) * 255
     # cnt_image[new_mask == 255] += 30 
 
-    new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    _, new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     all_contours.extend(new_contour)
 
