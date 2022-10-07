@@ -356,6 +356,8 @@ class StateMachine():
         large_store_positions = small_store_positions.copy()
         large_store_positions[:,0] *= -1
         task_complete = False
+        curr_large_store_current_idx = 0
+        curr_small_store_current_idx = 0
         while not task_complete:
 
             self.stow_arm()
@@ -367,17 +369,33 @@ class StateMachine():
                 self.current_blocks = current_blocks
                 # aggregate_blocks.append(current_blocks)
 
+            self.current_blocks = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
             self.current_blocks.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2, block.top_face_position[1]**2) )
 
+            if(len(self.current_blocks) == 0):
+                task_complete = True
+                break
+            
             for block in self.current_blocks:
+                self.rxarm.go_to_safe()
 
                 if block.is_large:
-                    # self.rxarm.move_above_vertical(block.top_face_position, block.angle)
-                    self.rxarm.grab_from_above(block.top_face_position,block.angle)
-                    self.rxarm.move_above_vertical(block.top_face_position)
-                    # self.rxarm.retract
+                    self.rxarm.move_above(block.top_face_position, block.angle, vertical=True)
+                    self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=True)
+                    self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90, safe=False, vertical=True)
+                    curr_large_store_current_idx += 1
+                    curr_large_store_current_idx %= len(large_store_positions)
                 else:
-                    self.rxarm.grab_from_above(block.top_face_position)
+                    self.rxarm.move_above(block.top_face_position, block.angle, vertical=True)
+                    self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=True)
+                    self.rxarm.place_on(small_store_positions[curr_small_store_current_idx,:], 90, safe=False, vertical=True)
+                    curr_small_store_current_idx += 1
+                    curr_small_store_current_idx %= len(small_store_positions)
+
+                    
+                if self.next_state == "estop":
+                    return
+
 
 
             if self.next_state == "estop":

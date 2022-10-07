@@ -324,7 +324,7 @@ class Camera():
 
         detected_blocks = []
         for (block_contour, top_depth, block_color) in zip(depth_block_contours, top_depths,block_colors):
-            theta = cv2.minAreaRect(block_contour)[2]
+            theta = cv2.minAreaRect(block_contour)[2] % 90.0
             M = cv2.moments(block_contour)
             if M['m00'] == 0:
                 continue
@@ -376,6 +376,7 @@ class Camera():
         mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 4, top_depth + 4))) #.astype(np.uint8) * 255
         return top_depth, mask
 
+    # def world_xyz_to_world_xyz
 
 class ImageListener:
     def __init__(self, topic, camera):
