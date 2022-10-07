@@ -5,10 +5,10 @@ TODO: Here is where you will write all of your kinematics functions
 There are some functions to start with, you may need to implement a few more
 """
 from __future__ import print_function
-import imp
+from select import select
 import numpy as np
 # expm is a matrix exponential function
-from scipy.linalg import expm
+from scipy.linalg import expm, logm
 from utility_functions import *
 
 
@@ -50,6 +50,7 @@ def Jacobian_Baseframe_constrained(S, jointangles, upper_limits, lower_limits):
     for i in range(len(upper_limits)-1):
         if(jointangles[i]>upper_limits[i] or jointangles[i]<lower_limits[i]):
             Js[:, i] = np.zeros(6)
+    # print('Jacobian mat', Js)
     return Js
 
 def FK_Baseframe(joint_angle_dis, M, S_list):
@@ -60,7 +61,7 @@ def FK_Baseframe(joint_angle_dis, M, S_list):
     """
 
     temp = np.eye(4)
-    # print(joint_angle_dis)
+    # print('Joint angle dis in fk baseframe', joint_angle_dis)
     for i in range(5):
         # print('More shapes',i,construct_se3_matrix(S_list[i,:]).shape,end=', ')
         # print(construct_se3_matrix(S_list[i,:]).shape,joint_angle_dis[i])
@@ -145,11 +146,16 @@ def IK_Base_frame_constrained(S, M, T, joint_angles_guess, e_w, e_v, upper_limit
     random_restart_num = 10
 
     cur_pose = FK_Baseframe(joint_angles, M, S)
+    # print('cur pose in IK function', cur_pose)
 
+    # print('destination in IK', T)
 
     error_SE3_b = np.matmul(InvOfTrans(cur_pose), T)
+    # print('error_SE3_b', error_SE3_b)
     vector_twist_b = conv_se3_vec(logm(error_SE3_b))
+    # print('vector_twist_b', vector_twist_b)
     vector_twist_s = np.matmul(Adjoint(cur_pose), vector_twist_b)
+    # print('vector_twist_s',vector_twist_s)
 
     err = np.linalg.norm([vector_twist_s[0], vector_twist_s[1], vector_twist_s[2]]) > e_w \
           or np.linalg.norm([vector_twist_s[3], vector_twist_s[4], vector_twist_s[5]]) > e_v

@@ -124,6 +124,8 @@ class Gui(QMainWindow):
         self.ui.btnUser12.setText('Save Images')
         self.ui.btnUser12.clicked.connect(self.camera.saveImage)
 
+        self.ui.btn_task1.clicked.connect(lambda: self.sm.set_next_state('event1'))
+
         # Sliders
         for sldr in self.joint_sliders:
             sldr.valueChanged.connect(self.sliderChange)

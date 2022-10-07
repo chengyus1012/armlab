@@ -1,6 +1,7 @@
 """!
 The state machine that implements the logic.
 """
+from __future__ import print_function
 from asyncore import write
 from cmath import sqrt
 from turtle import pos
@@ -13,6 +14,7 @@ import math
 import pandas as pd 
 from scipy.spatial.transform import Rotation
 from apriltag_ros.msg import AprilTagDetectionArray
+from rxarm import D2R
 from utility_functions import *
 
 class StateMachine():
@@ -358,9 +360,12 @@ class StateMachine():
         task_complete = False
         curr_large_store_current_idx = 0
         curr_small_store_current_idx = 0
-        while not task_complete:
 
-            self.stow_arm()
+        self.rxarm.startup()
+
+        while not task_complete:
+            print("Loop")
+            self.rxarm.stow_arm()
 
             self.current_ee_pose = self.rxarm.get_ee_pose()[:3,3]
             aggregate_blocks = []
@@ -370,39 +375,46 @@ class StateMachine():
                 # aggregate_blocks.append(current_blocks)
 
             self.current_blocks = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
-            
+            print(len(self.current_blocks), "blocks detected")
             if(len(self.current_blocks) == 0):
                 task_complete = True
                 break
 
-            self.current_blocks.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2, block.top_face_position[1]**2) )
+            self.current_blocks.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2 + block.top_face_position[1]**2) )
             
-            vertically_reachable_blocks = filter(lambda block: self.rxarm.reachable(block.top_face_position, vertical=True, above=True, is_large=block.is_large))
-            
+            vertically_reachable_blocks = filter(lambda block: self.rxarm.reachable(block.top_face_position, vertical=True, above=True, is_large=block.is_large), self.current_blocks)
+            print(len(vertically_reachable_blocks), "vertically reachable blocks")
             if(len(vertically_reachable_blocks) == 0):
                 selected_blocks = self.current_blocks
                 approach_vertically = False
             else:
                 selected_blocks = vertically_reachable_blocks
                 approach_vertically = True
-
             for block in selected_blocks:
+                print(block)
+            for block in selected_blocks:
+                print("Going to block", block.color,"at",block.top_face_position,block.angle)
                 self.rxarm.go_to_safe()
                 success = self.rxarm.move_above(block.top_face_position, block.angle, vertical=approach_vertically)
                 if (not success):
                     continue
                 self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=approach_vertically)
+                print("grab finished")
                 
                 self.rxarm.go_to_safe()
+                print("go to safe")
 
                 if block.is_large:
-                    self.rxarm.move_above(large_store_positions[curr_large_store_current_idx,:], 90, vertical=True)
-                    self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90, vertical=True)
+                    print("Placing at",large_store_positions[curr_large_store_current_idx,:])
+                    self.rxarm.move_above(large_store_positions[curr_large_store_current_idx,:], 90*D2R, vertical=True)
+                    self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90*D2R, vertical=True)
                     curr_large_store_current_idx += 1
                     curr_large_store_current_idx %= len(large_store_positions)
                 else:
-                    self.rxarm.move_above(small_store_positions[curr_small_store_current_idx,:], 90, vertical=True)
-                    self.rxarm.place_on(small_store_positions[curr_small_store_current_idx,:], 90, vertical=True)
+                    print("Placing at",small_store_positions[curr_small_store_current_idx,:])
+
+                    self.rxarm.move_above(small_store_positions[curr_small_store_current_idx,:], 90*D2R, vertical=True)
+                    self.rxarm.place_on(small_store_positions[curr_small_store_current_idx,:], 90*D2R, vertical=True)
                     curr_small_store_current_idx += 1
                     curr_small_store_current_idx %= len(small_store_positions)
 

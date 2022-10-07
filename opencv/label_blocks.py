@@ -79,7 +79,6 @@ def retrieve_top_depth(depth, contour):
     cv2.drawContours(mask, [contour], -1, 255, -1)
 
     top_depth = np.percentile(depth[mask == 255], 30)
-    cv2.inRange
     mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 5, top_depth + 5))) #.astype(np.uint8) * 255
     return top_depth, mask
 
@@ -221,6 +220,7 @@ hsv_image = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 all_contours = []
 print("Now: ", len(contours))
 
+top_depths = []
 for contour in contours:
     top_depth, new_mask = retrieve_top_depth(depth_data, contour)
     cv2.imshow('Mask',new_mask)
@@ -231,6 +231,7 @@ for contour in contours:
     _, new_contour, _ = cv2.findContours(new_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     all_contours.extend(new_contour)
+    top_depths.extend([top_depth] * len(new_contour))
 
 all_boxes = []
 for i in range(len(all_contours)):
@@ -247,7 +248,7 @@ print(all_contours)
 print("Now: ", len(all_contours))
 cv2.drawContours(cnt_image, all_boxes, -1, (0,0,127), thickness=1)
 
-for sub_cnt in all_contours:
+for (i, sub_cnt) in enumerate(all_contours):
     cv2.drawContours(cnt_image, [sub_cnt], -1, (255,255,255), thickness=1)
 
     rgb_color = retrieve_area_color(rgb_image, sub_cnt, colors)
@@ -271,7 +272,7 @@ for sub_cnt in all_contours:
     size = M['m00']
     cv2.putText(cnt_image, lab_color , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
     cv2.putText(cnt_image, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
-    cv2.putText(cnt_image, str(int(top_depth)), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
+    cv2.putText(cnt_image, str(int(top_depths[i])), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
     cv2.putText(cnt_image, str(int(size)), (cx-30, cy-40), font, 1.0, (255,0,0), thickness=2)
 
     print(rgb_color, lab_color, int(theta), cx, cy, top_depth)

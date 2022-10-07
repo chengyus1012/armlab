@@ -233,6 +233,8 @@ class Block:
         self.color = color
         self.possible_blocks_beneath = possible_blocks_beneath
 
+    def __str__(self):
+        return "XYZ: ({0:.2f}, {1:.2f}, {2:.2f})  Angle: {3:.2f}  Large: {4}  Color: {5}".format(self.top_face_position[0], self.top_face_position[1], self.top_face_position[2], self.angle, self.is_large, self.color)
     # def is_same(self, other):
 
 

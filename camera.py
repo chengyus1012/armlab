@@ -282,6 +282,9 @@ class Camera():
         thresh = cv2.bitwise_and(cv2.inRange(sharpen, min_depth, max_depth), self.mask)
 
         _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
+        contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, contours)
+
         block_contours = []
         top_depths = []
         for contour in contours:
@@ -290,8 +293,6 @@ class Camera():
             block_contours.extend(new_contours)
             top_depths.extend([top_depth]*len(new_contours))
 
-        block_contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, block_contours)
-        block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, block_contours)
         
         for i in range(len(block_contours)):
             epsilon = 0.1*cv2.arcLength(block_contours[i],True)
@@ -327,13 +328,15 @@ class Camera():
 
         detected_blocks = []
         for (block_contour, top_depth, block_color) in zip(depth_block_contours, top_depths,block_colors):
-            theta = cv2.minAreaRect(block_contour)[2] % 90.0
+            theta = math.radians(cv2.minAreaRect(block_contour)[2] % 90.0)
             M = cv2.moments(block_contour)
             if M['m00'] == 0:
                 continue
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
             z = top_depth # TODO May want to sample from depth frame instead of using top depth
+
+            print(block_color, z)
 
             block_position_camera = z * np.matmul(np.linalg.inv(K),np.array([cx, cy, 1]).T)
             block_position_world = np.matmul(H_camera_to_world, np.concatenate([block_position_camera,[1]]))[:3]
@@ -375,8 +378,8 @@ class Camera():
         mask = np.zeros(depth.shape, dtype="uint8")
         cv2.drawContours(mask, [contour], -1, 255, -1)
 
-        top_depth = np.percentile(depth[mask == 255], 20)
-        mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 4, top_depth + 4))) #.astype(np.uint8) * 255
+        top_depth = np.percentile(depth[mask == 255], 30)
+        mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 5, top_depth + 5))) #.astype(np.uint8) * 255
         return top_depth, mask
 
     # def world_xyz_to_world_xyz

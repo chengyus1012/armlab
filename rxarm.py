@@ -151,7 +151,7 @@ class RXArm(InterbotixRobot):
 
         self.Glist = np.array([self.G1, self.G2, self.G3, self.G4, self.G5])
 
-        self.safe_position = np.array([0.0, -20.0, 70.0, -90.0, 0.0])
+        self.safe_position = np.array([0.0, -20.0, 70.0, -90.0, 0.0])*D2R
 
 
         #POX params
@@ -202,6 +202,26 @@ class RXArm(InterbotixRobot):
                              accel_time=self.accel_time,
                              blocking=False)
         self.open()
+        self.initialized = True
+        return self.initialized
+
+    def startup(self):
+        self.initialized = False
+        # Wait for other threads to finish with the RXArm instead of locking every single call
+        rospy.sleep(0.25)
+        """ Commanded Values """
+        self.position = [0.0] * self.num_joints  # radians
+        """ Feedback Values """
+        self.position_fb = [0.0] * self.num_joints  # radians
+        self.velocity_fb = [0.0] * self.num_joints  # 0 to 1 ???
+        self.effort_fb = [0.0] * self.num_joints  # -1 to 1
+
+        # Reset estop and initialized
+        self.estop = False
+        self.enable_torque()
+        self.moving_time = 2.0
+        self.accel_time = 0.5
+        self.set_gripper_pressure(1.0)
         self.initialized = True
         return self.initialized
 
@@ -261,15 +281,17 @@ class RXArm(InterbotixRobot):
 
          @param      top_face_position  xyz in world frame
          """
+        top_face_position = np.append(top_face_position,[1])
         object_position_arm = transformation_from_world_to_arm(top_face_position)
         arm_x = object_position_arm[0]
         arm_y = object_position_arm[1]
         if vertical:
             self.T = np.array([
-                    [0, np.cos(angle), -np.sin(angle), object_position_arm[0]],
-                    [0, np.sin(angle), np.cos(angle), object_position_arm[1]],
+                    [0, 0, 1, object_position_arm[0]],
+                    [0, 1, 0, object_position_arm[1]],
                     [-1, 0, 0, object_position_arm[2]],
                     [0, 0, 0, 1]]) # destination
+            self.T[0:3,0:3] = np.matmul(Rz(-angle), self.T[0:3,0:3])
             self.T[1,3] *= 1.04
             self.T[0,3] = self.T[0,3]*1.02 - 0.5
         else:
@@ -279,7 +301,7 @@ class RXArm(InterbotixRobot):
                 [np.sin(theta), np.cos(theta), 0, object_position_arm[1]],
                 [0, 0, 1, object_position_arm[2]],
                 [0, 0, 0, 1]])
-
+        print('Arms',arm_y, arm_x)
         base_angle = np.arctan2(arm_y, arm_x)
         joint_angle_guess = np.array([base_angle,0,0,0,0])
             
@@ -344,6 +366,7 @@ class RXArm(InterbotixRobot):
         self.set_positions_custom(self.safe_position)
     
     def reachable(self, top_face_position, vertical=True, above=True, is_large=True):
+        top_face_position = np.append(top_face_position,[1])
         object_position_arm = transformation_from_world_to_arm(top_face_position)
         if(np.hypot(object_position_arm[0], object_position_arm[1]) > np.hypot(250,275)):
             return False
@@ -356,7 +379,7 @@ class RXArm(InterbotixRobot):
         accel_time = 0.75
         self.go_to_safe()
         
-        desired_pose = np.array([0, self.resp.sleep_pos[1], 0, 0, 0])
+        desired_pose = np.array([0, self.resp.sleep_pos[1]+(5*D2R), 0, 0, 0])
         self.publish_positions(desired_pose, moving_time, accel_time)
 
 
