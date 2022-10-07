@@ -370,29 +370,43 @@ class StateMachine():
                 # aggregate_blocks.append(current_blocks)
 
             self.current_blocks = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
-            self.current_blocks.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2, block.top_face_position[1]**2) )
-
+            
             if(len(self.current_blocks) == 0):
                 task_complete = True
                 break
+
+            self.current_blocks.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2, block.top_face_position[1]**2) )
             
-            for block in self.current_blocks:
+            vertically_reachable_blocks = filter(lambda block: self.rxarm.reachable(block.top_face_position, vertical=True, above=True, is_large=block.is_large))
+            
+            if(len(vertically_reachable_blocks) == 0):
+                selected_blocks = self.current_blocks
+                approach_vertically = False
+            else:
+                selected_blocks = vertically_reachable_blocks
+                approach_vertically = True
+
+            for block in selected_blocks:
+                self.rxarm.go_to_safe()
+                success = self.rxarm.move_above(block.top_face_position, block.angle, vertical=approach_vertically)
+                if (not success):
+                    continue
+                self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=approach_vertically)
+                
                 self.rxarm.go_to_safe()
 
                 if block.is_large:
-                    self.rxarm.move_above(block.top_face_position, block.angle, vertical=True)
-                    self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=True)
-                    self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90, safe=False, vertical=True)
+                    self.rxarm.move_above(large_store_positions[curr_large_store_current_idx,:], 90, vertical=True)
+                    self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90, vertical=True)
                     curr_large_store_current_idx += 1
                     curr_large_store_current_idx %= len(large_store_positions)
                 else:
-                    self.rxarm.move_above(block.top_face_position, block.angle, vertical=True)
-                    self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=True)
-                    self.rxarm.place_on(small_store_positions[curr_small_store_current_idx,:], 90, safe=False, vertical=True)
+                    self.rxarm.move_above(small_store_positions[curr_small_store_current_idx,:], 90, vertical=True)
+                    self.rxarm.place_on(small_store_positions[curr_small_store_current_idx,:], 90, vertical=True)
                     curr_small_store_current_idx += 1
                     curr_small_store_current_idx %= len(small_store_positions)
 
-                    
+                break    
                 if self.next_state == "estop":
                     return
 
