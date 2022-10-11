@@ -54,7 +54,8 @@ class StateMachine():
                                [-250, 275, 0], # 4
                                [425,  400, 151], # 5
                                [-425, 400, 241], # 6 
-                               [-425, -100, 92]])# 7 # in world frame
+                               [-425, -100, 92], # 7 
+                               [425, -100, 152]]) # 8 # in world frame
         self.K = np.reshape(np.array([917.5701927, 0., 662.45090881, 0., 913.11787224, 352.30931891, 0., 0., 1.]),(3,3))
         self.D = [ 0.07636514, -0.1292355,  -0.00093855,  0.00284562,  0.        ]
         self.apriltag_sub = rospy.Subscriber('/tag_detections', AprilTagDetectionArray, self.apriltag_callback)
@@ -186,6 +187,7 @@ class StateMachine():
         print("Pixels:\n",pixel_coords)
         A_pnp = self.recover_homogenous_transform_pnp(pixel_coords[:,:-1].astype(np.float32),self.tag_positions.astype(np.float32), self.camera.intrinsic_matrix)
         self.camera.extrinsic_matrix = np.linalg.inv(A_pnp)
+        print("Calibrated:\n",self.camera.extrinsic_matrix)
         np.savetxt('config/latest_calibration.txt',self.camera.extrinsic_matrix)
         # self.camera.extrinsic_matrix[2,3] += 10
         # A_svd = self.recover_homogeneous_transform_svd(self.tag_positions, points_camera)

@@ -264,8 +264,8 @@ class Camera():
 
         depth_x_sample = 375
 
-        rgb_image = self.VideoFrame
-        depth_data = self.DepthFrameRaw
+        # rgb_image = self.VideoFrame.copy()
+        depth_data = self.DepthFrameRaw.copy()
 
         # TODO Use extrinsics to calculate delta
         top_depth = depth_data[self.board_top][depth_x_sample]
@@ -462,7 +462,6 @@ class DepthListener:
         except CvBridgeError as e:
             print(e)
         self.camera.DepthFrameRaw = cv_depth
-        #self.camera.DepthFrameRaw = self.camera.DepthFrameRaw/2
         if self.i % 10 == 0:
             self.camera.detectBlocksInDepthImage()
         self.i += 1
