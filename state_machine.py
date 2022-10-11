@@ -445,10 +445,21 @@ class StateMachine():
         self.status_message = "State: Performing event 2"
         self.current_state = "event2"
 
-        store_positions = np.array([[125, -50, 0], # 1
-                                    [200, -50, 0], # 2
-                                    [275, -50, 0]])# 7 # in world frame
+        stack_positions = np.array([[125, -100, 0], # 1
+                                    [200, -100, 0], # 2
+                                    [275, -100, 0]])# 7 # in world frame
         
+        store_positions = np.array([[-250, -125, 0], # 1
+                                    [-200, -125, 0], # 2
+                                    [-150, -125, 0], # 2
+                                    [-100, -125, 0], # 2
+                                    [-225, -50, 0], # 2
+                                    [-175, -50, 0], # 2
+                                    [-125, -50, 0],
+                                    [125, 0, 0], # 1
+                                    [200, 0, 0], # 2
+                                    [275, 0, 0]])# 7 # in world frame
+
         task_complete = False
         
         curr_store_current_idx = 0
@@ -467,53 +478,75 @@ class StateMachine():
                 # aggregate_blocks.append(current_blocks)
 
             blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
-            stacks = filter(lambda block: block.top_face_position[1] < 0,self.current_blocks)
-            stack_positions = []
+            blocks_store = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] < 0,self.current_blocks)
+            stacks = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < -50,self.current_blocks)
+            stack_actual_positions_idx = []
             for stack in stacks:
-                closest_store_pos = np.argmin([np.linalg.norm(store_pos[:2] - stack.top_face_position[:2]) for store_pos in store_positions])
-                stack_positions.append(closest_store_pos)
-
-            spots_left = set([0,1,2]) - set(stack_positions) 
+                closest_stack_pos = np.argmin([np.linalg.norm(stack_pos[:2] - stack.top_face_position[:2]) for stack_pos in stack_positions])
+                stack_actual_positions_idx.append(closest_stack_pos)
+            print(stacks,stack_actual_positions_idx)
+            spots_left = set([0,1,2]) - set(stack_actual_positions_idx) 
             print(len(blocks_left), "blocks left,", len(stacks), "stacks made")
-            if(len(blocks_left) == 0):
+            if(len(blocks_left) == 0 and len(blocks_store) == 0):
                 task_complete = True
                 break
 
             blocks_left.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2 + block.top_face_position[1]**2) )
             vertically_reachable_blocks = filter(lambda block: self.rxarm.reachable(block.top_face_position, vertical=True, above=True, is_large=block.is_large), blocks_left)
-            # large_vertically_reachable_blocks = filter(lambda block: block.is_large, vertically_reachable_blocks)
+            large_vertically_reachable_blocks = filter(lambda block: block.is_large, vertically_reachable_blocks)
+            large_blocks_store = filter(lambda block: block.is_large, blocks_store)
             # small_vertically_reachable_blocks = filter(lambda block: not block.is_large, vertically_reachable_blocks)
 
             # print(len(large_vertically_reachable_blocks), "large vertically reachable blocks,",len(small_vertically_reachable_blocks), "small vertically reachable blocks")
-            if(len(vertically_reachable_blocks) == 0):
-                selected_blocks = self.current_blocks
-                approach_vertically = False
-            else:
-                selected_blocks = vertically_reachable_blocks
+            stack_block = False
+            if(len(large_vertically_reachable_blocks) > 0):
+                selected_blocks = large_vertically_reachable_blocks
+                stack_block = True
                 approach_vertically = True
+            elif(len(vertically_reachable_blocks) > 0):
+                selected_blocks = vertically_reachable_blocks
+                stack_block = False
+                approach_vertically = True
+            elif(len(blocks_left) > 0):
+                selected_blocks = blocks_left
+                stack_block = False
+                approach_vertically = False
+            elif(len(large_blocks_store) > 0):
+                selected_blocks = large_blocks_store
+                stack_block = True
+                approach_vertically = True
+            else: # Only stored small blocks
+                selected_blocks = blocks_store
+                stack_block = True
+                approach_vertically = True
+
             for block in selected_blocks:
                 print(block)
-                
-            for block in selected_blocks:
-                print("Going to block", block.color,"at",block.top_face_position,block.angle)
-                self.rxarm.go_to_safe(center=False)
-                success = self.rxarm.move_above(block.top_face_position, block.angle, vertical=approach_vertically)
-                if (not success):
-                    continue
-                self.rxarm.grab(block.top_face_position,block.angle, block.is_large, vertical=approach_vertically)
-                self.rxarm.move_above(block.top_face_position, block.angle, vertical=approach_vertically)
 
-                print("grab finished")
-                
-                self.rxarm.go_to_safe(center=False)
-                print("go to safe")
+            current_block = selected_blocks[0]   
+            print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
+            self.rxarm.go_to_safe(center=False)
+            success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+            if (not success):
+                continue
+            self.rxarm.grab(current_block.top_face_position,current_block.angle, current_block.is_large, vertical=approach_vertically)
+            self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+
+            print("grab finished")
+            
+            self.rxarm.go_to_safe(center=False)
+            print("go to safe")
+            
+            if (stack_block):
 
                 if (len(spots_left) > 0):
-                    place_on_position = store_positions[list(spots_left)[0]]
+                    stack_index = list(spots_left)[0]
+                    place_on_position = stack_positions[stack_index]
                 else:
-                    shortest_stack = np.argmin([stack.top_face_position[2] for stack in stacks])
-                    place_on_position = store_positions[stack_positions[shortest_stack]].copy()
-                    place_on_position[2] = stacks[shortest_stack].top_face_position[2]
+                    stack_index = np.argmin([stack.top_face_position[2] for stack in stacks])
+                    place_on_position = stacks[stack_index].top_face_position #stack_positions[stack_actual_positions_idx[stack_index]].copy()
+                    # place_on_position[2] = stacks[stack_index].top_face_position[2]
+                print("Stacking on",place_on_position,"stack",stack_index)
 
                 success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
                 if not success:
@@ -521,14 +554,20 @@ class StateMachine():
                 self.rxarm.place_on(place_on_position, 90*D2R, vertical=True)
                 self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
 
-                break    
-                if self.next_state == "estop" or self.next_state == "initialize_rxarm":
-                    return
+            else: # Store block for future
+                print("Storing at",store_positions[curr_store_current_idx,:])
+                success = self.rxarm.move_above(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
+                if not success:
+                    continue
+                self.rxarm.place_on(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
+                self.rxarm.move_above(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
 
-
-
+                curr_store_current_idx += 1
+                curr_store_current_idx %= len(store_positions)
+                
             if self.next_state == "estop" or self.next_state == "initialize_rxarm":
                 return
+
 
         self.status_message = "State: Event 2 complete"
         self.next_state = "idle"

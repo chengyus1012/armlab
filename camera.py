@@ -283,7 +283,7 @@ class Camera():
 
         _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
-        contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, contours)
+        contours = filter(lambda cnt: cv2.contourArea(cnt) > 200, contours)
 
         block_contours = []
         top_depths = []
@@ -293,7 +293,8 @@ class Camera():
             block_contours.extend(new_contours)
             top_depths.extend([top_depth]*len(new_contours))
 
-        
+        block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 200, block_contours)
+
         for i in range(len(block_contours)):
             epsilon = 0.1*cv2.arcLength(block_contours[i],True)
 
