@@ -55,7 +55,7 @@ class StateMachine():
                                [425,  400, 151], # 5
                                [-425, 400, 241], # 6 
                                [-425, -100, 92], # 7 
-                               [425, -100, 152] # 8
+                            #    [425, -100, 152] # 8
                                ])  # in world frame
         self.K = np.reshape(np.array([917.5701927, 0., 662.45090881, 0., 913.11787224, 352.30931891, 0., 0., 1.]),(3,3))
         self.D = [ 0.07636514, -0.1292355,  -0.00093855,  0.00284562,  0.        ]
@@ -758,7 +758,7 @@ class StateMachine():
 
             # blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
             large_blocks_store = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < 0,self.current_blocks)
-            small_blocks_store = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < 0,self.current_blocks)
+            small_blocks_store = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] < 0,self.current_blocks)
             large_blocks_store.sort(key=lambda block: color_index_map[block.color])
             small_blocks_store.sort(key=lambda block: color_index_map[block.color])
             large_stack = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] > 0,self.current_blocks)
@@ -793,8 +793,15 @@ class StateMachine():
 
             for block in selected_blocks:
                 print(block)
-
-            current_block = selected_blocks[0]   
+            
+            if(len(selected_blocks) > 1):
+                block_color_idxs = [color_index_map[block.color] for block in selected_blocks]
+                if block_color_idxs[0] == block_color_idxs[1]:
+                    current_block = min(selected_blocks[:2], key=lambda block: block.color_dist)
+                else:
+                    current_block = selected_blocks[0]
+            else:
+                current_block = selected_blocks[0]   
             print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
             self.rxarm.go_to_safe(center=False)
             success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)

@@ -70,7 +70,7 @@ class RXArm(InterbotixRobot):
 
         self.shoulder_diff = -3*D2R
         self.elbow_diff = 4*D2R
-        self.wran_diff = 1.5*D2R
+        self.wran_diff = 4.5*D2R
 
 
         
@@ -152,9 +152,9 @@ class RXArm(InterbotixRobot):
         self.Glist = np.array([self.G1, self.G2, self.G3, self.G4, self.G5])
 
         self.safe_position = np.array([0.0, -20.0, 70.0, -90.0, 0.0])*D2R
-        self.tag_pixel_position =  np.array([[-250, -25], # 1
-                               [ 250, -25], # 2
-                               [ 250, 275]]) # 3
+        self.tag_pixel_position =  np.array([[887, 277], # 1
+                               [ 409, 280], # 2
+                               [ 409, 568]]) # 3
         self.a = 0
         self.b = 0
         self.c = 1
@@ -279,23 +279,6 @@ class RXArm(InterbotixRobot):
                 if gui_func is not None:
                     gui_func()
 
-    def calculate_offset(self):
-        K = self.camera.intrinsic_matrix
-        H_camera_to_world = self.camera.extrinsic_matrix
-        points_in_world = np.zeros((3,3))
-        for i in range(3):
-            z = self.camera.DepthFrameRaw[self.tag_pixel_position[1]][self.tag_pixel_position[0]]
-
-            object_position_camera = z * np.matmul(np.linalg.inv(K),np.array([self.tag_pixel_position[0], self.tag_pixel_position[1], 1]).T)
-            object_position_world = np.matmul(H_camera_to_world, np.concatenate([object_position_camera,[1]]))
-            object_position_arm = transformation_from_world_to_arm(object_position_world)
-            points_in_world[i,:] = object_position_arm[0:3].copy()
-        v1 = points_in_world[2,:] - points_in_world[0,:]
-        v2 = points_in_world[1,:] - points_in_world[0,:]
-        cp = np.cross(v1, v2)
-        self.a,self.b,self.c = cp
-        self.d = np.dot(cp, points_in_world[2,:])
-        print('coefficient stored')
         
     # some functions for tasks
     def move_above(self, top_face_position, angle, vertical=True):
@@ -353,7 +336,7 @@ class RXArm(InterbotixRobot):
         if is_large:
             T_grab[2,3] += 5
         else:
-            T_grab[2,3] += 5
+            T_grab[2,3] += 15
         
         print(T_grab[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
@@ -377,7 +360,7 @@ class RXArm(InterbotixRobot):
     def place_on(self, store_positions , angle, is_large = True, safe=False, vertical=True):
         joint_angle_guess = self.get_positions()
         T_drop = self.T.copy()
-        T_drop[2,3] += 35
+        T_drop[2,3] += 40
         # print(T_drop[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
 

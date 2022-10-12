@@ -122,7 +122,7 @@ class Gui(QMainWindow):
         self.ui.btnUser7.setText('Clear Waypoints')
         self.ui.btnUser7.clicked.connect(partial(nxt_if_arm_init, 'clear'))
         self.ui.btnUser8.setText('Calculate z offset')
-        self.ui.btnUser8.clicked.connect(self.rxarm.calculate_offset)
+        self.ui.btnUser8.clicked.connect(self.calculate_offset)
         self.ui.btnUser12.setText('Save Images')
         self.ui.btnUser12.clicked.connect(self.camera.saveImage)
 
@@ -267,6 +267,24 @@ class Gui(QMainWindow):
             self.ui.rdoutMouseWorld.setText("(%.0f,%.0f,%.0f)" %
                                              (object_position_world[0], object_position_world[1], object_position_world[2]))
 
+    def calculate_offset(self):
+        K = self.camera.intrinsic_matrix
+        H_camera_to_world = self.camera.extrinsic_matrix
+        points_in_world = np.zeros((3,3))
+        for i in range(3):
+            z = self.camera.DepthFrameRaw[self.rxarm.tag_pixel_position[i, 1]][self.rxarm.tag_pixel_position[i, 0]]
+
+            object_position_camera = z * np.matmul(np.linalg.inv(K),np.array([self.rxarm.tag_pixel_position[i, 0], self.rxarm.tag_pixel_position[i, 1], 1]).T)
+            object_position_world = np.matmul(H_camera_to_world, np.concatenate([object_position_camera,[1]]))
+            object_position_arm = transformation_from_world_to_arm(object_position_world)
+            points_in_world[i,:] = object_position_arm[0:3].copy()
+        v1 = points_in_world[2,:] - points_in_world[0,:]
+        v2 = points_in_world[1,:] - points_in_world[0,:]
+        cp = np.cross(v1, v2)
+        self.rxarm.a,self.rxarm.b,self.rxarm.c = cp
+        self.rxarm.d = np.dot(cp, points_in_world[2,:])
+        print('coefficient stored',self.rxarm.a,self.rxarm.b,self.rxarm.c, self.rxarm.d)
+    
     def calibrateMousePress(self, mouse_event):
         """!
         @brief Record mouse click positions for calibration
@@ -304,6 +322,8 @@ class Gui(QMainWindow):
             object_position_arm = transformation_from_world_to_arm(object_position_world)
             arm_x = object_position_arm[0]
             arm_y = object_position_arm[1]
+            object_position_arm[2] -= (self.rxarm.d - self.rxarm.a * arm_x - self.rxarm.b * arm_y) / self.rxarm.c
+            
             # end effector pose in arm base frame
             if(np.hypot(object_position_arm[0], object_position_arm[1]) > np.hypot(250,275)):
                 theta = np.arctan2(object_position_arm[1], object_position_arm[0])
@@ -320,18 +340,13 @@ class Gui(QMainWindow):
                     [0, 1, 0, object_position_arm[1]],
                     [-1, 0, 0, object_position_arm[2]],
                     [0, 0, 0, 1]]) # destination
-
+                T[1,3] = 1.0423*T[1,3] - 0.575
+                T[0,3] = T[0,3]*1.03167 - 0.20825
                 Outter_area = False
 
             joint_angle_guess = self.rxarm.get_positions()
             cur_pose = FK_Baseframe(joint_angle_guess, self.rxarm.M_matrix, self.rxarm.S_list)
-            total_dis = T[:,3] - cur_pose[:,3]
-            total_dis_norm = np.linalg.norm(total_dis)
-            print('total dis',total_dis, total_dis_norm)
-            if not Outter_area:
-                T[1,3] *= 1.04
-                T[0,3] = T[0,3]*1.02 - 0.5
-            num_mid_points = int(total_dis_norm/150)
+            
             temp_T = cur_pose.copy()
             temp_T[2,3] += 100
             desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
@@ -341,63 +356,11 @@ class Gui(QMainWindow):
             else:
                 rospy.logerr("Something wrong with the IK")
 
-            # just calculate the mid points
-            # desired_joint_angle = joint_angle_guess
-            # for i in range(num_mid_points):
-            #     cur_pose = FK_Baseframe(desired_joint_angle, self.rxarm.M_matrix, self.rxarm.S_list)
-            #     if(i == num_mid_points-1):
-            #         temp_T = T.copy()
-            #         temp_T[2,3] += 100
-            #         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, desired_joint_angle, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-            #         if IK_flag:
-            #             self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
-            #             print('final mid points arrived', i)
-            #         else:
-            #             rospy.logerr("Something wrong with the IK")
-            #     else:
-            #         temp_T[0:2,3] = cur_pose[0:2,3] + total_dis[0:2]/(num_mid_points+1)
-            #         if temp_T[0,3]<75 and abs(temp_T[1,3])<50:
-            #             temp_T[0,3] += 150
-            #         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, desired_joint_angle, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-            #         if IK_flag:
-            #             print('mid points arrived', i)
-            #         else:
-            #             rospy.logerr("Something wrong with the IK")
-
-
-
-            # actually go through the mid points
-            # for i in range(num_mid_points):
-            #     joint_angle_guess = self.rxarm.get_positions()
-            #     cur_pose = FK_Baseframe(joint_angle_guess, self.rxarm.M_matrix, self.rxarm.S_list)
-            #     if(i == num_mid_points-1):
-            #         temp_T = T.copy()
-            #         temp_T[2,3] += 100
-            #     else:
-            #         temp_T[0:2,3] = cur_pose[0:2,3] + total_dis[0:2]/(num_mid_points+1)
-            #         if temp_T[0,3]<75 and abs(temp_T[1,3])<50:
-            #             temp_T[0,3] += 150
-            #     desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.rxarm.S_list, self.rxarm.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.rxarm.resp.upper_joint_limits, self.rxarm.resp.lower_joint_limits)
-            #     if IK_flag:
-            #         self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=False)
-            #         print('mid points arrived', i)
-            #     else:
-            #         rospy.logerr("Something wrong with the IK")
-
-            # go through the home position
-            
-            # if arm_x > 125 and arm_y>0:
-            #     joint_angle_guess = np.array([np.pi/4,0,0,0,0])
-            # elif arm_x <125 and arm_y>0:
-            #     joint_angle_guess = np.array([np.pi/2,0,0,0,0])
-            # elif arm_x>125 and arm_y<0:
-            #     joint_angle_guess = np.array([-np.pi/4,0,0,0,0])
-            # elif arm_x<125 and arm_y<0:
-            #     joint_angle_guess = np.array([-np.pi/2,0,0,0,0])
-            # else:
-            #     joint_angle_guess = np.zeros(5)
             base_angle = np.arctan2(arm_y, arm_x)
-            joint_angle_guess = np.array([base_angle,0,0,0,0])
+            if Outter_area:
+                joint_angle_guess = np.array([base_angle,0,0,0,0])
+            else:
+                joint_angle_guess = np.array([base_angle,0,0,-np.pi/2,0])
                 
             print('joint guess', joint_angle_guess)
             temp_T = T.copy()
@@ -438,10 +401,10 @@ class Gui(QMainWindow):
                 
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
                 actual_angle = self.rxarm.get_positions()
-                angle_difference = desired_joint_angle - actual_angle
-                with open('angle_difference.txt', 'a') as outfile2:    
-                    np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
-                print('angle difference', angle_difference)
+                # angle_difference = desired_joint_angle - actual_angle
+                # with open('angle_difference.txt', 'a') as outfile2:    
+                #     np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
+                # print('angle difference', angle_difference)
             else:
                 rospy.logerr("Something wrong with the IK")
             self.rxarm.close()
@@ -449,7 +412,7 @@ class Gui(QMainWindow):
         else:
             joint_angle_guess = self.rxarm.get_positions()
             T_drop = T.copy()
-            T_drop[2,3] += 60
+            T_drop[2,3] += 40
             # T_drop[1,3] *= 1.04
             # T_drop[0,3] = T_drop[0,3]*1.02 - 0.5
             print(T_drop[:,3])
@@ -461,10 +424,10 @@ class Gui(QMainWindow):
             if IK_flag:
                 self.rxarm.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents)
                 actual_angle = self.rxarm.get_positions()
-                angle_difference = desired_joint_angle - actual_angle
-                with open('angle_difference.txt', 'a') as outfile2:    
-                    np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
-                print('angle difference', angle_difference)
+                # angle_difference = desired_joint_angle - actual_angle
+                # with open('angle_difference.txt', 'a') as outfile2:    
+                #     np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
+                # print('angle difference', angle_difference)
             else:
                 rospy.logerr("Something wrong with the IK")
             self.rxarm.open()

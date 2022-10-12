@@ -53,8 +53,8 @@ class Camera():
         self.block_detections = np.array([])
 
         self.color_dict = OrderedDict({
-            'red': (0, 20, 180),
-            'orange': (0, 70, 205),
+            'red': (20, 20, 200),
+            'orange': (0, 80, 250),
             'yellow': (0, 170, 255),
             'dark_green': (30, 110, 20),
             'light_green': (50, 135, 40),
@@ -118,7 +118,7 @@ class Camera():
 
             cv2.putText(BlockImageFrame, min_color + " " + str(int(depth)) , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
             cv2.putText(BlockImageFrame, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
-            # cv2.putText(self.BlockImageFrame, str(int()), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
+            cv2.putText(BlockImageFrame, str(int(dist)), (cx+30, cy+40), font, 1.0, (255,50,50), thickness=2)
 
         cv2.rectangle(BlockImageFrame, (self.board_left,self.board_top),(self.board_right,self.board_bottom), (255, 0, 0), 2)
         # cv2.rectangle(BlockImageFrame,(self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), (255, 0, 0), 2)
@@ -127,8 +127,8 @@ class Camera():
         cv2.drawContours(BlockImageFrame, self.block_contours, -1,
                          (255, 0, 255), 3)
 
-        if len(self.block_contours) > 0:
-            print("Min area:",min(self.block_contours,key=lambda cnt: cv2.contourArea(cnt)),min([cv2.contourArea(cnt) for cnt in self.block_contours]))
+        # if len(self.block_contours) > 0:
+        #     print("Min area:",min(self.block_contours,key=lambda cnt: cv2.contourArea(cnt)),min([cv2.contourArea(cnt) for cnt in self.block_contours]))
 
         self.BlockImageFrame = BlockImageFrame
         
@@ -271,7 +271,7 @@ class Camera():
 
         """
         min_depth = 500.0
-        max_depth = 967.0
+        max_depth = 958.0
 
 
         # rgb_image = self.VideoFrame.copy()
@@ -327,25 +327,27 @@ class Camera():
         blurred = cv2.GaussianBlur(BlockImageFrame, (5, 5), 0)
         lab_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2LAB)
         block_colors = []
+        color_dists = []
         for block in block_contours:
             color_index, dist = self.retrieve_area_color(lab_image, block, self.lab_colors)
             min_color = self.color_dict.keys()[color_index]
 
             block_colors.append(min_color)
+            color_dists.append(dist)
 
-        return block_colors
+        return block_colors, color_dists
        
 
     def detect_blocks(self, ee_pose):
         depth_block_contours, top_depths = self.detectBlocksInDepthImage()
 
-        block_colors = self.getBlockColors(depth_block_contours)
+        block_colors, color_dists = self.getBlockColors(depth_block_contours)
 
         K = self.intrinsic_matrix
         H_camera_to_world = self.extrinsic_matrix
 
         detected_blocks = []
-        for (block_contour, top_depth, block_color) in zip(depth_block_contours, top_depths,block_colors):
+        for (block_contour, top_depth, block_color, color_dist) in zip(depth_block_contours, top_depths,block_colors, color_dists):
             theta = math.radians(cv2.minAreaRect(block_contour)[2] % 90.0)
             M = cv2.moments(block_contour)
             if M['m00'] == 0:
@@ -370,7 +372,7 @@ class Camera():
             #     if (math.isclose(bottom_height,0,abs_tol=1.0)):
             #         pass
 
-            block = Block(block_position_world, theta, is_large=is_large, ignore=False, color=block_color)
+            block = Block(block_position_world, theta, is_large=is_large, ignore=False, color=block_color, color_dist=color_dist)
             detected_blocks.append(block)      
 
         return detected_blocks
