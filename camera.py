@@ -127,6 +127,9 @@ class Camera():
         cv2.drawContours(BlockImageFrame, self.block_contours, -1,
                          (255, 0, 255), 3)
 
+        if len(self.block_contours) > 0:
+            print("Min area:",min(self.block_contours,key=lambda cnt: cv2.contourArea(cnt)),min([cv2.contourArea(cnt) for cnt in self.block_contours]))
+
         self.BlockImageFrame = BlockImageFrame
         
 

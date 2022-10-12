@@ -70,7 +70,7 @@ class RXArm(InterbotixRobot):
 
         self.shoulder_diff = -3*D2R
         self.elbow_diff = 4*D2R
-        self.wran_diff = 5.5*D2R
+        self.wran_diff = 1.5*D2R
 
 
         
@@ -292,8 +292,8 @@ class RXArm(InterbotixRobot):
                     [-1, 0, 0, object_position_arm[2]],
                     [0, 0, 0, 1]]) # destination
             self.T[0:3,0:3] = np.matmul(Rz(-angle), self.T[0:3,0:3])
-            self.T[1,3] *= 1.04
-            self.T[0,3] = self.T[0,3]*1.02 - 0.5
+            self.T[1,3] = 1.0423*self.T[1,3] - 0.575
+            self.T[0,3] = self.T[0,3]*1.03167 - 0.20825
         else:
             theta = np.arctan2(object_position_arm[1], object_position_arm[0])
             self.T = np.array([
@@ -326,7 +326,7 @@ class RXArm(InterbotixRobot):
         joint_angle_guess = self.get_positions()
         T_grab = self.T.copy()
         if is_large:
-            T_grab[2,3] += 15
+            T_grab[2,3] += 12
         else:
             T_grab[2,3] += 25
         
@@ -349,11 +349,11 @@ class RXArm(InterbotixRobot):
         return IK_flag
         
 
-    def place_on(self, store_positions , angle, safe=False, vertical=True):
+    def place_on(self, store_positions , angle, is_large = True, safe=False, vertical=True):
         joint_angle_guess = self.get_positions()
         T_drop = self.T.copy()
         T_drop[2,3] += 60
-        print(T_drop[:,3])
+        # print(T_drop[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
 
         if IK_flag:
