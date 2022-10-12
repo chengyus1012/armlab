@@ -225,6 +225,8 @@ class Block:
     SMALL_MM = 24.0 # Actual size in mm
     LARGE_MM = 38.1 # Actual size in mm
 
+    ASSOCIATION_DISTANCE = 12 # in mm
+
     def __init__(self, top_face_position, angle, is_large, ignore=False, contour=None, color=None, possible_blocks_beneath = []):
         self.top_face_position = top_face_position # Defined to center of top face
         self.angle = angle
@@ -233,9 +235,10 @@ class Block:
         self.color = color
         self.possible_blocks_beneath = possible_blocks_beneath
 
-    def __str__(self):
+    def __repr__(self):
         return "XYZ: ({0:.2f}, {1:.2f}, {2:.2f})  Angle: {3:.2f}  Large: {4}  Color: {5}".format(self.top_face_position[0], self.top_face_position[1], self.top_face_position[2], self.angle, self.is_large, self.color)
     # def is_same(self, other):
+    # def aggregate(block_observations):
 
 
     

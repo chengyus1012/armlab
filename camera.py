@@ -10,13 +10,14 @@ from PyQt4.QtGui import QImage
 from PyQt4.QtCore import QThread, pyqtSignal, QTimer
 import rospy
 import cv2
+from rxarm import D2R
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import CameraInfo
 from apriltag_ros.msg import *
 from cv_bridge import CvBridge, CvBridgeError
 from collections import OrderedDict
-from utility_functions import ee_transformation_to_pose, Block
+from utility_functions import Rx, ee_transformation_to_pose, Block
 from scipy.spatial import distance
 
 class Camera():
@@ -31,6 +32,7 @@ class Camera():
         self.TagImageFrame = np.zeros((720, 1280, 3)).astype(np.uint8)
         self.BlockImageFrame = np.zeros_like(self.VideoFrame)
         self.DepthFrameRaw = np.zeros((720, 1280)).astype(np.uint16)
+        self.DepthFrameHistory = np.zeros((5,720,1280)).astype(np.uint16)
         """ Extra arrays for colormaping the depth image"""
         self.DepthFrameHSV = np.zeros((720, 1280, 3)).astype(np.uint8)
         self.DepthFrameRGB = np.array([])
@@ -47,6 +49,7 @@ class Camera():
         self.tag_locations = [[-250, -25], [250, -25], [250, 275]]
         """ block info """
         self.block_contours = np.array([])
+        self.block_depths = np.array([])
         self.block_detections = np.array([])
 
         self.color_dict = OrderedDict({
@@ -75,7 +78,7 @@ class Camera():
         self.arm_base_mask = np.zeros_like(self.DepthFrameRaw, dtype=np.uint8)
 
         self.board_top = 110
-        self.board_bottom = 680
+        self.board_bottom = 700
         self.board_left = 190
         self.board_right = 1080
         self.arm_left = 560
@@ -83,8 +86,11 @@ class Camera():
         self.arm_top = 374
         self.arm_bottom = 720
         self.latest_ee_pose = [0,10,10]
+        self.depth_x_sample = 205
+
         # self.arm_base_mask = 
         self.arm_base_poly = np.array([[565,720],[565, 600],[540, 570],[540, 505], [595, 455], [675, 455], [730,505], [730,570], [700,600], [700,720]])
+        self.arm_base_poly[:,0] += 15
         cv2.rectangle(self.mask, (self.board_left,self.board_top),(self.board_right,self.board_bottom), 255, cv2.FILLED)
         # cv2.rectangle(self.mask, (self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), 0, cv2.FILLED)
         cv2.fillPoly(self.mask, [self.arm_base_poly], 0)
@@ -99,7 +105,7 @@ class Camera():
         lab_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2LAB)
         font = cv2.FONT_HERSHEY_SIMPLEX
 
-        for block in self.block_contours:
+        for block, depth in zip(self.block_contours, self.block_depths):
             color_index, dist = self.retrieve_area_color(lab_image, block, self.lab_colors)
             min_color = self.color_dict.keys()[color_index]
 
@@ -110,7 +116,7 @@ class Camera():
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
 
-            cv2.putText(BlockImageFrame, min_color + " " + str(int(dist)) , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
+            cv2.putText(BlockImageFrame, min_color + " " + str(int(depth)) , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
             cv2.putText(BlockImageFrame, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
             # cv2.putText(self.BlockImageFrame, str(int()), (cx+30, cy+40), font, 1.0, (0,255,255), thickness=2)
 
@@ -241,6 +247,8 @@ class Camera():
         """
 
         self.extrinsic_matrix = np.loadtxt(file).reshape((4,4))
+        # self.extrinsic_matrix[2,3] += 10
+        # self.extrinsic_matrix[:3,:3] = np.matmul(Rx(D2R*-2),self.extrinsic_matrix[:3,:3])
         print('Loaded extrinsic matrix from file')
         print(self.extrinsic_matrix)
         print(ee_transformation_to_pose(self.extrinsic_matrix))
@@ -260,16 +268,15 @@ class Camera():
 
         """
         min_depth = 500.0
-        max_depth = 958.0
+        max_depth = 967.0
 
-        depth_x_sample = 375
 
         # rgb_image = self.VideoFrame.copy()
         depth_data = self.DepthFrameRaw.copy()
 
         # TODO Use extrinsics to calculate delta
-        top_depth = depth_data[self.board_top][depth_x_sample]
-        bottom_depth = depth_data[self.board_bottom][depth_x_sample]
+        top_depth = np.median(depth_data[self.board_top][self.depth_x_sample-2:self.depth_x_sample+3])
+        bottom_depth = np.median(depth_data[self.board_bottom][self.depth_x_sample-2:self.depth_x_sample+3])
         delta_depth = (float(top_depth) - bottom_depth) / float(self.board_top - self.board_bottom)
 
         for r in range(self.board_top,depth_data.shape[0]):
@@ -293,7 +300,13 @@ class Camera():
             block_contours.extend(new_contours)
             top_depths.extend([top_depth]*len(new_contours))
 
-        block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 200, block_contours)
+        result = list(filter(lambda item: cv2.contourArea(item[0]) > 200, zip(block_contours,top_depths)))
+        # block_contours = filter(lambda cnt: cv2.contourArea(cnt) > 200, block_contours)
+        if len(result) == 0:
+            block_contours = []
+            top_depths = []
+        else:
+            block_contours, top_depths = [list(t) for t in list(zip(*result))]
 
         for i in range(len(block_contours)):
             epsilon = 0.1*cv2.arcLength(block_contours[i],True)
@@ -301,6 +314,7 @@ class Camera():
             block_contours[i] = (cv2.approxPolyDP(block_contours[i],epsilon,True))
             
         self.block_contours = block_contours
+        self.block_depths = top_depths
 
         return block_contours, top_depths
 
@@ -337,7 +351,7 @@ class Camera():
             cy = int(M['m01']/M['m00'])
             z = top_depth # TODO May want to sample from depth frame instead of using top depth
 
-            print(block_color, z)
+            # print(block_color, z)
 
             block_position_camera = z * np.matmul(np.linalg.inv(K),np.array([cx, cy, 1]).T)
             block_position_world = np.matmul(H_camera_to_world, np.concatenate([block_position_camera,[1]]))[:3]
@@ -380,6 +394,8 @@ class Camera():
         cv2.drawContours(mask, [contour], -1, 255, -1)
 
         top_depth = np.percentile(depth[mask == 255], 30)
+        # for i in range(10):
+        #     print("Contour",contour[0],"Percentile:",i*10,np.percentile(depth[mask == 255], i*10))
         mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 5, top_depth + 5))) #.astype(np.uint8) * 255
         return top_depth, mask
 
@@ -458,10 +474,20 @@ class DepthListener:
     def callback(self, data):
         try:
             cv_depth = self.bridge.imgmsg_to_cv2(data, data.encoding)
+            
             #cv_depth = cv2.rotate(cv_depth, cv2.ROTATE_180)
         except CvBridgeError as e:
             print(e)
+        # top_depth = np.median(cv_depth[self.camera.board_top][self.camera.depth_x_sample-2:self.camera.depth_x_sample+3])
+        # bottom_depth = np.median(cv_depth[self.camera.board_bottom][self.camera.depth_x_sample-2:self.camera.depth_x_sample+3])
+        # delta_depth = (float(top_depth) - bottom_depth) / float(self.camera.board_top - self.camera.board_bottom)
+
+        # for r in range(self.camera.board_top,cv_depth.shape[0]):
+        #     cv_depth[r,:] += -(delta_depth * (r - self.camera.board_top)).astype(np.uint16)
+
         self.camera.DepthFrameRaw = cv_depth
+        self.camera.DepthFrameHistory[1:5] = self.camera.DepthFrameHistory[0:4].copy()
+        self.camera.DepthFrameHistory[0] = cv_depth
         if self.i % 10 == 0:
             self.camera.detectBlocksInDepthImage()
         self.i += 1

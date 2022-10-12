@@ -301,21 +301,21 @@ class RXArm(InterbotixRobot):
                 [np.sin(theta), np.cos(theta), 0, object_position_arm[1]],
                 [0, 0, 1, object_position_arm[2]],
                 [0, 0, 0, 1]])
-        print('Arms',arm_y, arm_x)
+        # print('Arms',arm_y, arm_x)
         base_angle = np.arctan2(arm_y, arm_x)
         if vertical:
             joint_angle_guess = np.array([base_angle,0,0,-np.pi/2,0])
         else:
             joint_angle_guess = np.array([base_angle,0,0,0,0])
             
-        print('joint guess', joint_angle_guess)
+        # print('joint guess', joint_angle_guess)
         temp_T = self.T.copy()
         temp_T[2,3] += 100
-        print('final mid point', temp_T[:,3])
+        # print('final mid point', temp_T[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, temp_T, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
         if IK_flag:
             self.set_positions_custom(desired_joint_angle, gui_func=QCoreApplication.processEvents, sleep_move_time=True)
-            print('final mid points arrived')
+            # print('final mid points arrived')
         else:
             rospy.logerr("Something wrong with the IK")
         return IK_flag
@@ -387,8 +387,13 @@ class RXArm(InterbotixRobot):
     def reachable(self, top_face_position, vertical=True, above=True, is_large=True):
         top_face_position = np.append(top_face_position,[1])
         object_position_arm = transformation_from_world_to_arm(top_face_position)
-        max_height_cone = 225
-        if(np.hypot(object_position_arm[0], object_position_arm[1]) > np.hypot(250,275)*((max_height_cone - object_position_arm[2])/max_height_cone)):
+        max_radius = np.hypot(250,275)
+        max_height_bound = 225
+        object_radius = np.hypot(object_position_arm[0], object_position_arm[1])
+        object_height = object_position_arm[2]
+        # if above:
+        #     object_height += 100
+        if((max_height_bound - object_height)/object_radius < (max_height_bound/max_radius)): # Outside of bounding ellipse
             return False
         else:
             return True

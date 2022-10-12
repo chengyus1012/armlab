@@ -55,7 +55,8 @@ class StateMachine():
                                [425,  400, 151], # 5
                                [-425, 400, 241], # 6 
                                [-425, -100, 92], # 7 
-                               [425, -100, 152]]) # 8 # in world frame
+                               [425, -100, 152] # 8
+                               ])  # in world frame
         self.K = np.reshape(np.array([917.5701927, 0., 662.45090881, 0., 913.11787224, 352.30931891, 0., 0., 1.]),(3,3))
         self.D = [ 0.07636514, -0.1292355,  -0.00093855,  0.00284562,  0.        ]
         self.apriltag_sub = rospy.Subscriber('/tag_detections', AprilTagDetectionArray, self.apriltag_callback)
@@ -373,9 +374,9 @@ class StateMachine():
 
             self.current_ee_pose = self.rxarm.get_ee_pose()[:3,3]
             aggregate_blocks = []
-            for i in range(5):
-                current_blocks = self.camera.detect_blocks(self.current_ee_pose)
-                self.current_blocks = current_blocks
+            
+            current_blocks = self.camera.detect_blocks(self.current_ee_pose)
+            self.current_blocks = current_blocks
                 # aggregate_blocks.append(current_blocks)
 
             self.current_blocks = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
@@ -474,9 +475,9 @@ class StateMachine():
 
             self.current_ee_pose = self.rxarm.get_ee_pose()[:3,3]
             aggregate_blocks = []
-            for i in range(5):
-                current_blocks = self.camera.detect_blocks(self.current_ee_pose)
-                self.current_blocks = current_blocks
+            
+            current_blocks = self.camera.detect_blocks(self.current_ee_pose)
+            self.current_blocks = current_blocks
                 # aggregate_blocks.append(current_blocks)
 
             blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
@@ -678,7 +679,7 @@ class StateMachine():
                                     image_points,
                                     K,
                                     distCoeffs,
-                                    flags=cv2.SOLVEPNP_ITERATIVE)
+                                    flags=cv2.SOLVEPNP_ITERATIVE) # cv2.SOLVEPNP_ITERATIVE
         R, _ = cv2.Rodrigues(R_exp)
         return np.row_stack((np.column_stack((R, t)), (0, 0, 0, 1)))
 

@@ -93,6 +93,19 @@ upper = int(args["upper"])
 rgb_image = cv2.imread(args["image"])
 cnt_image = cv2.imread(args["image"])
 depth_data = cv2.imread(args["depth"], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+
+DepthFrameHistory = np.zeros((5,720,1280)).astype(np.uint16)
+
+DepthFrameHistory[0] = depth_data
+DepthFrameHistory[1] = depth_data
+DepthFrameHistory[2] = depth_data
+DepthFrameHistory[3] = depth_data
+DepthFrameHistory[4] = depth_data
+
+depth_data = np.median(DepthFrameHistory,axis=0).astype(np.uint16)
+# print(median_depth)
+# cv2.imshow('Median', median_depth)
+
 top_depth = depth_data[top_board+10][depth_x_sample]
 bottom_depth = depth_data[bottom_board][depth_x_sample]
 print(top_depth, bottom_depth)
@@ -147,14 +160,14 @@ print(rescaled_depth.dtype)
 rescaled_depth = cv2.medianBlur(rescaled_depth,5)
 blur_depth = cv2.medianBlur(depth_data,5)
 sharpen_kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-sharpen = cv2.filter2D(blur_depth, -1, sharpen_kernel)
+# sharpen = cv2.filter2D(blur_depth, -1, sharpen_kernel)
 
 cv2.namedWindow('Rescaled')
 cv2.waitKey(0)
 print(depth_data.dtype, mask.dtype)
 
 # thresh = cv2.bitwise_and(depth_data, mask)
-thresh = cv2.bitwise_and(cv2.inRange(sharpen, lower, upper), mask)
+thresh = cv2.bitwise_and(cv2.inRange(blur_depth, lower, upper), mask)
 # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
 # thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
 
@@ -198,7 +211,7 @@ _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 contours = filter(lambda cnt: cv2.contourArea(cnt) < 5000, contours)
 contours = filter(lambda cnt: cv2.contourArea(cnt) > 100, contours)
 
-print(len(contours))
+print("NUM BOXES:",len(contours))
 # print(len(contours),contours)
 # cv2.drawContours(cnt_image, contours, -1, (0,0,255), thickness=2)
 # cv2.drawContours(depth_color, contours, -1, (0,0,255), thickness=2)
