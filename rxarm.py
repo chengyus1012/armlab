@@ -377,7 +377,7 @@ class RXArm(InterbotixRobot):
     def place_on(self, store_positions , angle, is_large = True, safe=False, vertical=True):
         joint_angle_guess = self.get_positions()
         T_drop = self.T.copy()
-        T_drop[2,3] += 10
+        T_drop[2,3] += 35
         # print(T_drop[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
 

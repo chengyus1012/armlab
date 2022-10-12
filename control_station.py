@@ -128,6 +128,8 @@ class Gui(QMainWindow):
 
         self.ui.btn_task1.clicked.connect(lambda: self.sm.set_next_state('event1'))
         self.ui.btn_task2.clicked.connect(lambda: self.sm.set_next_state('event2'))
+        self.ui.btn_task3.clicked.connect(lambda: self.sm.set_next_state('event3'))
+        self.ui.btn_task4.clicked.connect(lambda: self.sm.set_next_state('event4'))
 
         # Sliders
         for sldr in self.joint_sliders:

@@ -722,6 +722,124 @@ class StateMachine():
         self.status_message = "State: Performing event 4"
         self.current_state = "event4"
 
+        self.event1()
+        self.status_message = "State: Performing event 4"
+        self.current_state = "event4"
+
+        self.rxarm.stow_arm()
+
+        large_stack_position = np.array([125, 250, 0])# in world frame
+
+        small_stack_position = np.array([-125, 250, 0])# in world frame
+
+
+        color_index_map = {"red": 0,
+                            "orange": 1,
+                            "yellow": 2,
+                            "dark_green": 3,
+                            "light_green": 3,
+                            "blue": 4,
+                            "violet": 5
+                            }
+        task_complete = False
+        
+        curr_store_current_idx = 0
+
+        self.rxarm.startup()
+
+        while not task_complete:
+            print("Loop")
+            self.rxarm.stow_arm()
+
+            self.current_ee_pose = self.rxarm.get_ee_pose()[:3,3]
+            
+            current_blocks = self.camera.detect_blocks(self.current_ee_pose)
+            self.current_blocks = current_blocks
+
+            # blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
+            large_blocks_store = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < 0,self.current_blocks)
+            small_blocks_store = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < 0,self.current_blocks)
+            large_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            small_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            large_stack = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] > 0,self.current_blocks)
+            small_stack = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] > 0,self.current_blocks)
+            # stack_actual_positions_idx = []
+            # for stack in stacks:
+            #     closest_stack_pos = np.argmin([np.linalg.norm(stack_pos[:2] - stack.top_face_position[:2]) for stack_pos in stack_positions])
+            #     stack_actual_positions_idx.append(closest_stack_pos)
+            # print(stacks,stack_actual_positions_idx)
+            # spots_left = set([0,1,2]) - set(stack_actual_positions_idx) 
+            # print(len(blocks_left), "blocks left,", len(stacks), "stacks made")
+            if(len(large_blocks_store) == 0 and len(small_blocks_store) == 0):
+                task_complete = True
+                break
+
+            # blocks_left.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2 + block.top_face_position[1]**2) )
+            # vertically_reachable_blocks = filter(lambda block: self.rxarm.reachable(block.top_face_position, vertical=True, above=True, is_large=block.is_large), blocks_left)
+            # large_vertically_reachable_blocks = filter(lambda block: block.is_large, vertically_reachable_blocks)
+            # large_blocks_store = filter(lambda block: block.is_large, blocks_store)
+            # small_vertically_reachable_blocks = filter(lambda block: not block.is_large, vertically_reachable_blocks)
+
+            # print(len(large_vertically_reachable_blocks), "large vertically reachable blocks,",len(small_vertically_reachable_blocks), "small vertically reachable blocks")
+            large_finished = False
+            if(len(large_blocks_store) > 0):
+                selected_blocks = large_blocks_store
+                large_finished = False
+                approach_vertically = True
+            else: # Only stored small blocks
+                selected_blocks = small_blocks_store
+                large_finished = True
+                approach_vertically = True
+
+            for block in selected_blocks:
+                print(block)
+
+            current_block = selected_blocks[0]   
+            print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
+            self.rxarm.go_to_safe(center=False)
+            success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+            if (not success):
+                continue
+            self.rxarm.grab(current_block.top_face_position,current_block.angle, current_block.is_large, vertical=approach_vertically)
+            self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+
+            print("grab finished")
+            
+            self.rxarm.go_to_safe(center=False)
+            print("go to safe")
+            
+            if not large_finished:
+                if (len(large_stack) == 0):
+                    place_on_position = large_stack_position
+                else:
+                    place_on_position = large_stack[0].top_face_position #stack_positions[stack_actual_positions_idx[stack_index]].copy()
+                    # place_on_position[2] = stacks[stack_index].top_face_position[2]
+                print("Stacking on",place_on_position,"large stack")
+
+                success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
+                if not success:
+                    continue
+                self.rxarm.place_on(place_on_position, 90*D2R, vertical=True)
+                self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
+            else:
+                if (len(small_stack) == 0):
+                    place_on_position = small_stack_position
+                else:
+                    place_on_position = small_stack[0].top_face_position #stack_positions[stack_actual_positions_idx[stack_index]].copy()
+                    # place_on_position[2] = stacks[stack_index].top_face_position[2]
+                print("Stacking on",place_on_position,"small stack")
+
+                success = self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
+                if not success:
+                    continue
+                self.rxarm.place_on(place_on_position, -90*D2R, vertical=True)
+                self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
+
+
+                
+            if self.next_state == "estop" or self.next_state == "initialize_rxarm":
+                return
+
         self.status_message = "State: Event 4 complete"
         self.next_state = "idle"
 
