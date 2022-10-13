@@ -73,7 +73,7 @@ class Gui(QMainWindow):
         else:
             self.camera.extrinsic_matrix =np.array([[ 1,   0,   0,    15 ],
                                                     [ 0,  -1,   0,   1.729929951343542882e2 + 23 ],
-                                                    [ 0,   0,  -1,   980 ],
+                                                    [ 0,   0,  -1,   972 ],
                                                     [ 0,   0,   0,     1 ]])
         # self.camera.distortion_coeffs = np.array([0.15564486384391785, -0.48568257689476013, -0.0019681642297655344, 0.0007267732871696353, 0.44230175018310547])
         self.camera.distortion_coeffs = np.array([ 0.07636514, -0.1292355,  -0.00093855,  0.00284562,  0.        ])

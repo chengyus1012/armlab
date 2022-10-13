@@ -53,9 +53,9 @@ class Camera():
         self.block_detections = np.array([])
 
         self.color_dict = OrderedDict({
-            'red': (20, 20, 200),
-            'orange': (0, 80, 250),
-            'yellow': (0, 170, 255),
+            'red': (0, 0, 170),
+            'orange': (0, 80, 200),
+            'yellow': (0, 175, 255),
             'dark_green': (30, 110, 20),
             'light_green': (50, 135, 40),
             'blue': (110, 68, 10),
@@ -103,13 +103,14 @@ class Camera():
         BlockImageFrame = self.VideoFrame.copy()
         blurred = cv2.GaussianBlur(BlockImageFrame, (5, 5), 0)
         lab_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2LAB)
+        hsv_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2HSV)
         font = cv2.FONT_HERSHEY_SIMPLEX
 
         for block, depth in zip(self.block_contours, self.block_depths):
-            color_index, dist = self.retrieve_area_color(lab_image, block, self.lab_colors)
+            color_index, dist, hue = self.retrieve_area_color(lab_image, block, self.lab_colors, hsv_image)
             min_color = self.color_dict.keys()[color_index]
 
-            theta = cv2.minAreaRect(block)[2]
+            theta = cv2.minAreaRect(block)[2] % 90.0
             M = cv2.moments(block)
             if M['m00'] == 0:
                 continue
@@ -326,28 +327,31 @@ class Camera():
 
         blurred = cv2.GaussianBlur(BlockImageFrame, (5, 5), 0)
         lab_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2LAB)
+        hsv_image = cv2.cvtColor(blurred, cv2.COLOR_RGB2HSV)
         block_colors = []
         color_dists = []
+        hue_list = []
         for block in block_contours:
-            color_index, dist = self.retrieve_area_color(lab_image, block, self.lab_colors)
+            color_index, dist, hue = self.retrieve_area_color(lab_image, block, self.lab_colors, hsv_image)
             min_color = self.color_dict.keys()[color_index]
 
             block_colors.append(min_color)
             color_dists.append(dist)
+            hue_list.append(hue)
 
-        return block_colors, color_dists
+        return block_colors, color_dists, hue_list
        
 
     def detect_blocks(self, ee_pose):
         depth_block_contours, top_depths = self.detectBlocksInDepthImage()
 
-        block_colors, color_dists = self.getBlockColors(depth_block_contours)
+        block_colors, color_dists, hue_list = self.getBlockColors(depth_block_contours)
 
         K = self.intrinsic_matrix
         H_camera_to_world = self.extrinsic_matrix
 
         detected_blocks = []
-        for (block_contour, top_depth, block_color, color_dist) in zip(depth_block_contours, top_depths,block_colors, color_dists):
+        for (block_contour, top_depth, block_color, color_dist, hue) in zip(depth_block_contours, top_depths,block_colors, color_dists, hue_list):
             theta = math.radians(cv2.minAreaRect(block_contour)[2] % 90.0)
             M = cv2.moments(block_contour)
             if M['m00'] == 0:
@@ -372,7 +376,7 @@ class Camera():
             #     if (math.isclose(bottom_height,0,abs_tol=1.0)):
             #         pass
 
-            block = Block(block_position_world, theta, is_large=is_large, ignore=False, color=block_color, color_dist=color_dist)
+            block = Block(block_position_world, theta, is_large=is_large, ignore=False, color=block_color, color_dist=color_dist, hue=hue)
             detected_blocks.append(block)      
 
         return detected_blocks
@@ -381,10 +385,11 @@ class Camera():
         cv2.imwrite("data/rgb_image.png", cv2.cvtColor(self.VideoFrame, cv2.COLOR_RGB2BGR))
         cv2.imwrite("data/raw_depth.png", self.DepthFrameRaw)
 
-    def retrieve_area_color(self, data, contour, known_colors):
+    def retrieve_area_color(self, data, contour, known_colors, hsv_image):
         mask = np.zeros(data.shape[:2], dtype="uint8")
         cv2.drawContours(mask, [contour], -1, 255, -1)
         mean = cv2.mean(data, mask=mask)[:3]
+        hue = cv2.mean(hsv_image, mask=mask)[0]
         min_dist = (np.inf, None)
         for (i, color) in enumerate(known_colors):
             # print("Color:",color[0])
@@ -392,13 +397,13 @@ class Camera():
             d = distance.euclidean(color[0], mean)
             if d < min_dist[0]:
                 min_dist = (d, i)
-        return min_dist[1], min_dist[0]
+        return min_dist[1], min_dist[0], hue
 
     def retrieve_top_depth(self, depth, contour):
         mask = np.zeros(depth.shape, dtype="uint8")
         cv2.drawContours(mask, [contour], -1, 255, -1)
 
-        top_depth = np.percentile(depth[mask == 255], 30)
+        top_depth = np.percentile(depth[mask == 255], 15)
         # for i in range(10):
         #     print("Contour",contour[0],"Percentile:",i*10,np.percentile(depth[mask == 255], i*10))
         mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 5, top_depth + 5))) #.astype(np.uint8) * 255

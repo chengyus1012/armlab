@@ -78,7 +78,7 @@ def retrieve_top_depth(depth, contour):
     mask = np.zeros(depth.shape, dtype="uint8")
     cv2.drawContours(mask, [contour], -1, 255, -1)
 
-    top_depth = np.percentile(depth[mask == 255], 30)
+    top_depth = np.percentile(depth[mask == 255], 15)
     mask = (cv2.bitwise_and(mask, cv2.inRange(depth, top_depth - 5, top_depth + 5))) #.astype(np.uint8) * 255
     return top_depth, mask
 

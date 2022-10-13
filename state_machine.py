@@ -420,7 +420,7 @@ class StateMachine():
                     success = self.rxarm.move_above(large_store_positions[curr_large_store_current_idx,:], 90*D2R, vertical=True)
                     if not success:
                         continue
-                    self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90*D2R, vertical=True)
+                    self.rxarm.place_on(large_store_positions[curr_large_store_current_idx,:], 90*D2R,block.is_large, vertical=True)
                     self.rxarm.move_above(large_store_positions[curr_large_store_current_idx,:], 90*D2R, vertical=True)
 
                     curr_large_store_current_idx += 1
@@ -430,7 +430,7 @@ class StateMachine():
                     success = False
                     # while not success:
                     success = self.rxarm.move_above(small_store_positions[curr_small_store_current_idx,:], -90*D2R, vertical=True)
-                    self.rxarm.place_on(small_store_positions[curr_small_store_current_idx,:], -90*D2R, vertical=True)
+                    self.rxarm.place_on(small_store_positions[curr_small_store_current_idx,:], -90*D2R, block.is_large, vertical=True)
                     self.rxarm.move_above(small_store_positions[curr_small_store_current_idx,:], -90*D2R, vertical=True)
                     curr_small_store_current_idx += 1
                     curr_small_store_current_idx %= len(small_store_positions)
@@ -558,7 +558,7 @@ class StateMachine():
                 success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(place_on_position, 90*D2R, vertical=True)
+                self.rxarm.place_on(place_on_position, 90*D2R, current_block.is_large,vertical=True)
                 self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
 
             else: # Store block for future
@@ -566,7 +566,7 @@ class StateMachine():
                 success = self.rxarm.move_above(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
+                self.rxarm.place_on(store_positions[curr_store_current_idx,:], -90*D2R, current_block.is_large,vertical=True)
                 self.rxarm.move_above(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
 
                 curr_store_current_idx += 1
@@ -686,8 +686,8 @@ class StateMachine():
                 if large_slot_idx == 5:
                     push_position = place_on_position.copy()
                     push_position[1] += 75
-                    self.rxarm.place_on(place_on_position, 0, vertical=True, open = False)
-                    self.rxarm.place_on(push_position, 0, vertical=True, open = True)
+                    self.rxarm.place_on(place_on_position, 0, current_block.is_large,vertical=True, open = False)
+                    self.rxarm.place_on(push_position, 0, current_block.is_large,vertical=True, open = True)
                 else:
                     self.rxarm.place_on(place_on_position, 0, vertical=True, open = True)
                 
@@ -703,10 +703,10 @@ class StateMachine():
                 if small_slot_idx == 5:
                     push_position = place_on_position.copy()
                     push_position[1] += 90
-                    self.rxarm.place_on(place_on_position, 0, vertical=True, open = False)
-                    self.rxarm.place_on(push_position, 0, vertical=True, open = True)
+                    self.rxarm.place_on(place_on_position, 0, current_block.is_large,vertical=True, open = False)
+                    self.rxarm.place_on(push_position, 0, current_block.is_large,vertical=True, open = True)
                 else:
-                    self.rxarm.place_on(place_on_position, 0, vertical=True, open = True)
+                    self.rxarm.place_on(place_on_position, 0, current_block.is_large,vertical=True, open = True)
                 
             if self.next_state == "estop" or self.next_state == "initialize_rxarm":
                 return
@@ -724,9 +724,9 @@ class StateMachine():
 
         self.rxarm.stow_arm()
 
-        large_stack_position = np.array([125, 250, 0])# in world frame
+        large_stack_position = np.array([150, 150, 0])# in world frame
 
-        small_stack_position = np.array([-125, 250, 0])# in world frame
+        small_stack_position = np.array([-150, 150, 0])# in world frame
 
 
         color_index_map = {"red": 0,
@@ -755,8 +755,11 @@ class StateMachine():
             # blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
             large_blocks_store = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < 0,self.current_blocks)
             small_blocks_store = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] < 0,self.current_blocks)
-            large_blocks_store.sort(key=lambda block: color_index_map[block.color])
-            small_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            # large_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            # small_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            large_blocks_store.sort(key=lambda block: block.hue)
+            small_blocks_store.sort(key=lambda block: block.hue)
+
             large_stack = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] > 0,self.current_blocks)
             small_stack = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] > 0,self.current_blocks)
             
@@ -778,20 +781,24 @@ class StateMachine():
             for block in selected_blocks:
                 print(block)
             
-            if(len(selected_blocks) > 1):
-                block_color_idxs = [color_index_map[block.color] for block in selected_blocks]
-                if block_color_idxs[0] == block_color_idxs[1]:
-                    current_block = min(selected_blocks[:2], key=lambda block: block.color_dist)
-                else:
-                    current_block = selected_blocks[0]
-            else:
-                current_block = selected_blocks[0]   
+            # if(len(selected_blocks) > 1):
+            #     block_color_idxs = [color_index_map[block.color] for block in selected_blocks]
+            #     if block_color_idxs[0] == block_color_idxs[1]:
+            #         current_block = min(selected_blocks[:2], key=lambda block: block.color_dist)
+            #     else:
+            #         current_block = selected_blocks[0]
+            # else:
+            current_block = selected_blocks[0]   
             print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
             self.rxarm.go_to_safe(center=False)
             success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
             if (not success):
                 continue
-            self.rxarm.grab(current_block.top_face_position,current_block.angle, current_block.is_large, vertical=approach_vertically)
+            if current_block.is_large:
+                grab_angle = 90*D2R
+            else:
+                grab_angle = -90*D2R
+            self.rxarm.grab(current_block.top_face_position,grab_angle, current_block.is_large, vertical=approach_vertically)
             self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
 
             print("grab finished")
@@ -803,6 +810,7 @@ class StateMachine():
                 if (len(large_stack) == 0):
                     place_on_position = large_stack_position
                 else:
+                    print('top face of large stack', large_stack[0].top_face_position)
                     place_on_position = large_stack[0].top_face_position #stack_positions[stack_actual_positions_idx[stack_index]].copy()
                     # place_on_position[2] = stacks[stack_index].top_face_position[2]
                 print("Stacking on",place_on_position,"large stack")
@@ -810,7 +818,7 @@ class StateMachine():
                 # success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(place_on_position, 0, vertical=True)
+                self.rxarm.place_on(place_on_position, 0*D2R, current_block.is_large,vertical=True,direct_place=True)
                 # self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
             else:
                 if (len(small_stack) == 0):
@@ -823,7 +831,7 @@ class StateMachine():
                 # success = self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(place_on_position, 0, vertical=True)
+                self.rxarm.place_on(place_on_position, -0*D2R, current_block.is_large, vertical=True, direct_place=True)
                 # self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
 
                 

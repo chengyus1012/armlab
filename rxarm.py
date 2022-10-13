@@ -69,8 +69,8 @@ class RXArm(InterbotixRobot):
         # self.elbow_diff = 0.001215238360935
 
         self.shoulder_diff = -3*D2R
-        self.elbow_diff = 4*D2R
-        self.wran_diff = 4.5*D2R
+        self.elbow_diff = 0*D2R
+        self.wran_diff = 4*D2R
 
 
         
@@ -263,6 +263,7 @@ class RXArm(InterbotixRobot):
         move_time = max_delta / self.max_angular_vel
         # joint_positions[1]+=self.shoulder_diff
         # joint_positions[2]+=self.elbow_diff
+        joint_positions[2]+=self.elbow_diff
         joint_positions[3]+=self.wran_diff
         self.set_joint_positions(joint_positions,
                                  moving_time= move_time,
@@ -334,9 +335,9 @@ class RXArm(InterbotixRobot):
         joint_angle_guess = self.get_positions()
         T_grab = self.T.copy()
         if is_large:
-            T_grab[2,3] += 5
+            T_grab[2,3] += 17
         else:
-            T_grab[2,3] += 15
+            T_grab[2,3] += 30
         
         print(T_grab[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
@@ -370,6 +371,7 @@ class RXArm(InterbotixRobot):
                     [0, 1, 0, object_position_arm[1]],
                     [-1, 0, 0, object_position_arm[2]],
                     [0, 0, 0, 1]]) # destination
+            # theta = np.arctan2(object_position_arm[1], object_position_arm[0])
             self.T[0:3,0:3] = np.matmul(Rz(-angle), self.T[0:3,0:3])
             self.T[1,3] = 1.0423*self.T[1,3] - 0.575
             self.T[0,3] = self.T[0,3]*1.03167 - 0.20825
@@ -378,7 +380,10 @@ class RXArm(InterbotixRobot):
         else:
             joint_angle_guess = self.get_positions()
         T_drop = self.T.copy()
-        T_drop[2,3] += 40
+        if is_large:
+            T_drop[2,3] += 53
+        else:
+            T_drop[2,3] += 50
         # print(T_drop[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_drop, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
 
