@@ -339,6 +339,9 @@ class RXArm(InterbotixRobot):
         else:
             T_grab[2,3] += 30
         
+        if not vertical:
+            T_grab[2,3] -=5
+        
         print(T_grab[:,3])
         desired_joint_angle, IK_flag = IK_Base_frame_constrained(self.S_list, self.M_matrix, T_grab, joint_angle_guess, 0.01, 0.001,self.resp.upper_joint_limits, self.resp.lower_joint_limits)
         # extra_torque = GravityForces(desired_joint_angle, np.array([0, 0, -9800]), self.rxarm.Mlist, self.rxarm.Glist, self.rxarm.S_list.T)
@@ -406,8 +409,8 @@ class RXArm(InterbotixRobot):
         upright = self.safe_position.copy()
         upright[0] = cur_pos[0]
         self.set_joint_positions(upright,
-                                 moving_time=0.8,
-                                 accel_time=0.4,
+                                 moving_time=1.2,
+                                 accel_time=0.6,
                                  blocking=True)
         if (center):
             self.set_joint_positions(self.safe_position,

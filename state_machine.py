@@ -4,10 +4,12 @@ The state machine that implements the logic.
 from __future__ import print_function
 from asyncore import write
 from cmath import sqrt
+from re import T
 from turtle import pos
 from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
 import time
 import numpy as np
+from scipy import place
 import rospy
 import cv2
 import math
@@ -506,6 +508,7 @@ class StateMachine():
 
             # print(len(large_vertically_reachable_blocks), "large vertically reachable blocks,",len(small_vertically_reachable_blocks), "small vertically reachable blocks")
             stack_block = False
+            grab = False
             if(len(large_vertically_reachable_blocks) > 0):
                 selected_blocks = large_vertically_reachable_blocks
                 stack_block = True
@@ -522,22 +525,28 @@ class StateMachine():
                 selected_blocks = large_blocks_store
                 stack_block = True
                 approach_vertically = True
+                grab = True
             else: # Only stored small blocks
                 selected_blocks = blocks_store
                 stack_block = True
                 approach_vertically = True
+                grab = True
 
             for block in selected_blocks:
                 print(block)
 
-            current_block = selected_blocks[0]   
-            print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
+            current_block = selected_blocks[0] 
+            if grab:
+                angle = -90*D2R
+            else:
+                angle = current_block.angle
+            print("Going to block", current_block.color,"at",current_block.top_face_position, angle)
             self.rxarm.go_to_safe(center=False)
-            success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+            success = self.rxarm.move_above(current_block.top_face_position, angle, vertical=approach_vertically)
             if (not success):
                 continue
-            self.rxarm.grab(current_block.top_face_position,current_block.angle, current_block.is_large, vertical=approach_vertically)
-            self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+            self.rxarm.grab(current_block.top_face_position,angle, current_block.is_large, vertical=approach_vertically)
+            self.rxarm.move_above(current_block.top_face_position, angle, vertical=approach_vertically)
 
             print("grab finished")
             
@@ -545,13 +554,15 @@ class StateMachine():
             print("go to safe")
             
             if (stack_block):
-
+                a = 0.081
+                b = 0.0134
                 if (len(spots_left) > 0):
                     stack_index = list(spots_left)[0]
                     place_on_position = stack_positions[stack_index]
                 else:
                     stack_index = np.argmin([stack.top_face_position[2] for stack in stacks])
-                    place_on_position = stacks[stack_index].top_face_position #stack_positions[stack_actual_positions_idx[stack_index]].copy()
+                    place_on_position = stacks[stack_index].top_face_position.copy() #stack_positions[stack_actual_positions_idx[stack_index]].copy()
+                    place_on_position[0] -= a*place_on_position[2] + b*sqrt(place_on_position[0]**2 + place_on_position[1]**2)
                     # place_on_position[2] = stacks[stack_index].top_face_position[2]
                 print("Stacking on",place_on_position,"stack",stack_index)
 
@@ -606,13 +617,15 @@ class StateMachine():
                             ])# in world frame
 
         color_index_map = {"red": 0,
+                            "dark_red": 0,
                             "orange": 1,
+                            "dark_orange": 1,
                             "yellow": 2,
                             "dark_green": 3,
                             "light_green": 3,
                             "blue": 4,
                             "violet": 5
-                            }
+                            }        
         task_complete = False
         
         curr_store_current_idx = 0
@@ -662,13 +675,21 @@ class StateMachine():
                     current_block = selected_blocks[0]
             else:
                 current_block = selected_blocks[0]   
+            
+            if (not large_finished):
+                angle = 90*D2R
+            else:
+                angle = -90*D2R
             print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
             self.rxarm.go_to_safe(center=False)
-            success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+            negative_grab_position = current_block.top_face_position
+            negative_grab_position[2] -= 5
+            success = self.rxarm.move_above(negative_grab_position, angle, vertical=approach_vertically)
             if (not success):
                 continue
-            self.rxarm.grab(current_block.top_face_position,current_block.angle, current_block.is_large, vertical=approach_vertically)
-            self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+            
+            self.rxarm.grab(negative_grab_position,angle, current_block.is_large, vertical=approach_vertically)
+            self.rxarm.move_above(current_block.top_face_position, angle, vertical=approach_vertically)
 
             print("grab finished")
             
@@ -687,7 +708,7 @@ class StateMachine():
                     push_position = place_on_position.copy()
                     push_position[1] += 75
                     self.rxarm.place_on(place_on_position, 0, current_block.is_large,vertical=True, open = False)
-                    self.rxarm.place_on(push_position, 0, current_block.is_large,vertical=True, open = True)
+                    self.rxarm.place_on(push_position, 0, current_block.is_large,vertical=True, open = True, direct_place=True)
                 else:
                     self.rxarm.place_on(place_on_position, 0, vertical=True, open = True)
                 
@@ -704,7 +725,7 @@ class StateMachine():
                     push_position = place_on_position.copy()
                     push_position[1] += 90
                     self.rxarm.place_on(place_on_position, 0, current_block.is_large,vertical=True, open = False)
-                    self.rxarm.place_on(push_position, 0, current_block.is_large,vertical=True, open = True)
+                    self.rxarm.place_on(push_position, 0, current_block.is_large,vertical=True, open = True, direct_place=True)
                 else:
                     self.rxarm.place_on(place_on_position, 0, current_block.is_large,vertical=True, open = True)
                 
@@ -724,13 +745,15 @@ class StateMachine():
 
         self.rxarm.stow_arm()
 
-        large_stack_position = np.array([150, 150, 0])# in world frame
+        large_stack_position = np.array([0, 150, 0])# in world frame
 
         small_stack_position = np.array([-150, 150, 0])# in world frame
 
 
         color_index_map = {"red": 0,
+                            "dark_red": 0,
                             "orange": 1,
+                            "dark_orange": 1,
                             "yellow": 2,
                             "dark_green": 3,
                             "light_green": 3,
@@ -755,10 +778,10 @@ class StateMachine():
             # blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
             large_blocks_store = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < 0,self.current_blocks)
             small_blocks_store = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] < 0,self.current_blocks)
-            # large_blocks_store.sort(key=lambda block: color_index_map[block.color])
-            # small_blocks_store.sort(key=lambda block: color_index_map[block.color])
-            large_blocks_store.sort(key=lambda block: block.hue)
-            small_blocks_store.sort(key=lambda block: block.hue)
+            large_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            small_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            # large_blocks_store.sort(key=lambda block: block.hue)
+            # small_blocks_store.sort(key=lambda block: block.hue)
 
             large_stack = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] > 0,self.current_blocks)
             small_stack = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] > 0,self.current_blocks)
@@ -791,19 +814,20 @@ class StateMachine():
             current_block = selected_blocks[0]   
             print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
             self.rxarm.go_to_safe(center=False)
-            success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
-            if (not success):
-                continue
             if current_block.is_large:
                 grab_angle = 90*D2R
             else:
                 grab_angle = -90*D2R
+
+            success = self.rxarm.move_above(current_block.top_face_position, grab_angle, vertical=approach_vertically)
+            if (not success):
+                continue
             self.rxarm.grab(current_block.top_face_position,grab_angle, current_block.is_large, vertical=approach_vertically)
-            self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
+            self.rxarm.move_above(current_block.top_face_position, grab_angle, vertical=approach_vertically)
 
             print("grab finished")
             
-            self.rxarm.go_to_safe(center=False)
+            self.rxarm.go_to_safe(center=True)
             print("go to safe")
             
             if not large_finished:
