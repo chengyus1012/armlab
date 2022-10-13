@@ -179,9 +179,13 @@ class StateMachine():
         points_camera = np.zeros(self.tag_positions.shape)
         pixel_coords = np.zeros(self.tag_positions.shape, dtype=int)
         for tag in self.latest_tags.detections:
+            if len(tag.id) > 1:
+                continue
             id = tag.id[0]
             tag_position = np.array([tag.pose.pose.pose.position.x, tag.pose.pose.pose.position.y, tag.pose.pose.pose.position.z]) * 1000
             pixel_coords[id - 1, :] = np.matmul(np.block([(1 / (tag_position[2])) * self.camera.intrinsic_matrix, np.zeros((3,1))]), np.append(tag_position,1))
+            print("Tag id:", id,"at",tag_position)
+            print(pixel_coords[id - 1, 1],pixel_coords[id - 1, 0],self.camera.DepthFrameRaw.shape)
             z =self.camera.DepthFrameRaw[pixel_coords[id - 1, 1],pixel_coords[id - 1, 0]]
             points_camera[id - 1, :] =  np.matmul(z * np.linalg.inv(self.camera.intrinsic_matrix), pixel_coords[id - 1, :])
         
