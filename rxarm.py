@@ -357,8 +357,26 @@ class RXArm(InterbotixRobot):
         return IK_flag
         
 
-    def place_on(self, store_positions , angle, is_large = True, safe=False, vertical=True):
-        joint_angle_guess = self.get_positions()
+    def place_on(self, top_face_position , angle, is_large = True, safe=False, vertical=True, open=True, direct_place=False):
+        if (direct_place):
+            top_face_position = np.append(top_face_position,[1])
+            object_position_arm = transformation_from_world_to_arm(top_face_position)
+            
+            arm_x = object_position_arm[0]
+            arm_y = object_position_arm[1]
+            object_position_arm[2] -= (self.d - self.a * arm_x - self.b * arm_y) / self.c
+            self.T = np.array([
+                    [0, 0, 1, object_position_arm[0]],
+                    [0, 1, 0, object_position_arm[1]],
+                    [-1, 0, 0, object_position_arm[2]],
+                    [0, 0, 0, 1]]) # destination
+            self.T[0:3,0:3] = np.matmul(Rz(-angle), self.T[0:3,0:3])
+            self.T[1,3] = 1.0423*self.T[1,3] - 0.575
+            self.T[0,3] = self.T[0,3]*1.03167 - 0.20825
+            base_angle = np.arctan2(arm_y, arm_x)
+            joint_angle_guess = np.array([base_angle,0,0,-np.pi/2,0])
+        else:
+            joint_angle_guess = self.get_positions()
         T_drop = self.T.copy()
         T_drop[2,3] += 40
         # print(T_drop[:,3])
@@ -371,7 +389,8 @@ class RXArm(InterbotixRobot):
             # with open('angle_difference.txt', 'a') as outfile2:    
             #     np.savetxt(outfile2, [angle_difference], fmt='%f', delimiter= ',')
             # print('angle difference', angle_difference)
-            self.open()
+            if (open):
+                self.open()
         else:
             rospy.logerr("Something wrong with the IK")
         return IK_flag

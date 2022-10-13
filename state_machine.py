@@ -597,11 +597,11 @@ class StateMachine():
                             [125, 0, 0], # Violet
                             ])# in world frame
 
-        small_line_position = np.array([[-125, 250, 0], # Red
-                            [-125, 200, 0], # Orange
-                            [-125, 150, 0], # Yellow
-                            [-125, 100, 0], # Green
-                            [-125, 50, 0], # Blue
+        small_line_position = np.array([[-125, 200, 0], # Red
+                            [-125, 160, 0], # Orange
+                            [-125, 120, 0], # Yellow
+                            [-125, 80, 0], # Green
+                            [-125, 40, 0], # Blue
                             [-125, 0, 0], # Violet
                             ])# in world frame
 
@@ -680,21 +680,33 @@ class StateMachine():
                 place_on_position = large_line_position[large_slot_idx]
                 print("Placing on",place_on_position,"large block")
 
-                success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
+                success = self.rxarm.move_above(place_on_position, 0, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(place_on_position, 90*D2R, vertical=True)
-                self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
+                if large_slot_idx == 5:
+                    push_position = place_on_position.copy()
+                    push_position[1] += 75
+                    self.rxarm.place_on(place_on_position, 0, vertical=True, open = False)
+                    self.rxarm.place_on(push_position, 0, vertical=True, open = True)
+                else:
+                    self.rxarm.place_on(place_on_position, 0, vertical=True, open = True)
+                
+                self.rxarm.move_above(place_on_position, 0, vertical=True)
             else:
                 small_slot_idx = len(small_stack)
                 place_on_position = small_line_position[small_slot_idx]
                 print("Placing on",place_on_position,"small block")
 
-                success = self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
+                success = self.rxarm.move_above(place_on_position, 0, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(place_on_position, -90*D2R, vertical=True)
-                self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
+                if small_slot_idx == 5:
+                    push_position = place_on_position.copy()
+                    push_position[1] += 90
+                    self.rxarm.place_on(place_on_position, 0, vertical=True, open = False)
+                    self.rxarm.place_on(push_position, 0, vertical=True, open = True)
+                else:
+                    self.rxarm.place_on(place_on_position, 0, vertical=True, open = True)
                 
             if self.next_state == "estop" or self.next_state == "initialize_rxarm":
                 return
@@ -795,11 +807,11 @@ class StateMachine():
                     # place_on_position[2] = stacks[stack_index].top_face_position[2]
                 print("Stacking on",place_on_position,"large stack")
 
-                success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
+                # success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(place_on_position, 90*D2R, vertical=True)
-                self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
+                self.rxarm.place_on(place_on_position, 0, vertical=True)
+                # self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
             else:
                 if (len(small_stack) == 0):
                     place_on_position = small_stack_position
@@ -808,12 +820,11 @@ class StateMachine():
                     # place_on_position[2] = stacks[stack_index].top_face_position[2]
                 print("Stacking on",place_on_position,"small stack")
 
-                success = self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
+                # success = self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(place_on_position, -90*D2R, vertical=True)
-                self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
-
+                self.rxarm.place_on(place_on_position, 0, vertical=True)
+                # self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
 
                 
             if self.next_state == "estop" or self.next_state == "initialize_rxarm":
@@ -825,6 +836,7 @@ class StateMachine():
     def event5(self):
         self.status_message = "State: Performing event 5"
         self.current_state = "event5"
+        
 
         self.status_message = "State: Event 5 complete"
         self.next_state = "idle"
