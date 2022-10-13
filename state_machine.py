@@ -628,53 +628,40 @@ class StateMachine():
             current_blocks = self.camera.detect_blocks(self.current_ee_pose)
             self.current_blocks = current_blocks
 
-            blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
-            blocks_store = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] < 0,self.current_blocks)
-            stacks = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < -50,self.current_blocks)
-            stack_actual_positions_idx = []
-            for stack in stacks:
-                closest_stack_pos = np.argmin([np.linalg.norm(stack_pos[:2] - stack.top_face_position[:2]) for stack_pos in stack_positions])
-                stack_actual_positions_idx.append(closest_stack_pos)
-            print(stacks,stack_actual_positions_idx)
-            spots_left = set([0,1,2]) - set(stack_actual_positions_idx) 
-            print(len(blocks_left), "blocks left,", len(stacks), "stacks made")
-            if(len(blocks_left) == 0 and len(blocks_store) == 0):
+            # blocks_left = filter(lambda block: block.top_face_position[1] > 0,self.current_blocks)
+            large_blocks_store = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] < 0,self.current_blocks)
+            small_blocks_store = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] < 0,self.current_blocks)
+            large_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            small_blocks_store.sort(key=lambda block: color_index_map[block.color])
+            large_stack = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] > 0,self.current_blocks)
+            small_stack = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] > 0,self.current_blocks)
+            
+            if(len(large_blocks_store) == 0 and len(small_blocks_store) == 0):
                 task_complete = True
                 break
 
-            blocks_left.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2 + block.top_face_position[1]**2) )
-            vertically_reachable_blocks = filter(lambda block: self.rxarm.reachable(block.top_face_position, vertical=True, above=True, is_large=block.is_large), blocks_left)
-            large_vertically_reachable_blocks = filter(lambda block: block.is_large, vertically_reachable_blocks)
-            large_blocks_store = filter(lambda block: block.is_large, blocks_store)
-            # small_vertically_reachable_blocks = filter(lambda block: not block.is_large, vertically_reachable_blocks)
-
-            # print(len(large_vertically_reachable_blocks), "large vertically reachable blocks,",len(small_vertically_reachable_blocks), "small vertically reachable blocks")
-            stack_block = False
-            if(len(large_vertically_reachable_blocks) > 0):
-                selected_blocks = large_vertically_reachable_blocks
-                stack_block = True
-                approach_vertically = True
-            elif(len(vertically_reachable_blocks) > 0):
-                selected_blocks = vertically_reachable_blocks
-                stack_block = False
-                approach_vertically = True
-            elif(len(blocks_left) > 0):
-                selected_blocks = blocks_left
-                stack_block = False
-                approach_vertically = False
-            elif(len(large_blocks_store) > 0):
+            
+            large_finished = False
+            if(len(large_blocks_store) > 0):
                 selected_blocks = large_blocks_store
-                stack_block = True
+                large_finished = False
                 approach_vertically = True
             else: # Only stored small blocks
-                selected_blocks = blocks_store
-                stack_block = True
+                selected_blocks = small_blocks_store
+                large_finished = True
                 approach_vertically = True
 
             for block in selected_blocks:
                 print(block)
-
-            current_block = selected_blocks[0]   
+            
+            if(len(selected_blocks) > 1):
+                block_color_idxs = [color_index_map[block.color] for block in selected_blocks]
+                if block_color_idxs[0] == block_color_idxs[1]:
+                    current_block = min(selected_blocks[:2], key=lambda block: block.color_dist)
+                else:
+                    current_block = selected_blocks[0]
+            else:
+                current_block = selected_blocks[0]   
             print("Going to block", current_block.color,"at",current_block.top_face_position,current_block.angle)
             self.rxarm.go_to_safe(center=False)
             success = self.rxarm.move_above(current_block.top_face_position, current_block.angle, vertical=approach_vertically)
@@ -688,33 +675,26 @@ class StateMachine():
             self.rxarm.go_to_safe(center=False)
             print("go to safe")
             
-            if (stack_block):
-
-                if (len(spots_left) > 0):
-                    stack_index = list(spots_left)[0]
-                    place_on_position = stack_positions[stack_index]
-                else:
-                    stack_index = np.argmin([stack.top_face_position[2] for stack in stacks])
-                    place_on_position = stacks[stack_index].top_face_position #stack_positions[stack_actual_positions_idx[stack_index]].copy()
-                    # place_on_position[2] = stacks[stack_index].top_face_position[2]
-                print("Stacking on",place_on_position,"stack",stack_index)
+            if not large_finished:
+                large_slot_idx = len(large_stack)
+                place_on_position = large_line_position[large_slot_idx]
+                print("Placing on",place_on_position,"large block")
 
                 success = self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
                 if not success:
                     continue
                 self.rxarm.place_on(place_on_position, 90*D2R, vertical=True)
                 self.rxarm.move_above(place_on_position, 90*D2R, vertical=True)
+            else:
+                small_slot_idx = len(small_stack)
+                place_on_position = small_line_position[small_slot_idx]
+                print("Placing on",place_on_position,"small block")
 
-            else: # Store block for future
-                print("Storing at",store_positions[curr_store_current_idx,:])
-                success = self.rxarm.move_above(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
+                success = self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
                 if not success:
                     continue
-                self.rxarm.place_on(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
-                self.rxarm.move_above(store_positions[curr_store_current_idx,:], -90*D2R, vertical=True)
-
-                curr_store_current_idx += 1
-                curr_store_current_idx %= len(store_positions)
+                self.rxarm.place_on(place_on_position, -90*D2R, vertical=True)
+                self.rxarm.move_above(place_on_position, -90*D2R, vertical=True)
                 
             if self.next_state == "estop" or self.next_state == "initialize_rxarm":
                 return
@@ -767,24 +747,12 @@ class StateMachine():
             small_blocks_store.sort(key=lambda block: color_index_map[block.color])
             large_stack = filter(lambda block: block.top_face_position[0] > 0 and block.top_face_position[1] > 0,self.current_blocks)
             small_stack = filter(lambda block: block.top_face_position[0] < 0 and block.top_face_position[1] > 0,self.current_blocks)
-            # stack_actual_positions_idx = []
-            # for stack in stacks:
-            #     closest_stack_pos = np.argmin([np.linalg.norm(stack_pos[:2] - stack.top_face_position[:2]) for stack_pos in stack_positions])
-            #     stack_actual_positions_idx.append(closest_stack_pos)
-            # print(stacks,stack_actual_positions_idx)
-            # spots_left = set([0,1,2]) - set(stack_actual_positions_idx) 
-            # print(len(blocks_left), "blocks left,", len(stacks), "stacks made")
+            
             if(len(large_blocks_store) == 0 and len(small_blocks_store) == 0):
                 task_complete = True
                 break
 
-            # blocks_left.sort(key=lambda block: math.sqrt(block.top_face_position[0]**2 + block.top_face_position[1]**2) )
-            # vertically_reachable_blocks = filter(lambda block: self.rxarm.reachable(block.top_face_position, vertical=True, above=True, is_large=block.is_large), blocks_left)
-            # large_vertically_reachable_blocks = filter(lambda block: block.is_large, vertically_reachable_blocks)
-            # large_blocks_store = filter(lambda block: block.is_large, blocks_store)
-            # small_vertically_reachable_blocks = filter(lambda block: not block.is_large, vertically_reachable_blocks)
-
-            # print(len(large_vertically_reachable_blocks), "large vertically reachable blocks,",len(small_vertically_reachable_blocks), "small vertically reachable blocks")
+            
             large_finished = False
             if(len(large_blocks_store) > 0):
                 selected_blocks = large_blocks_store
