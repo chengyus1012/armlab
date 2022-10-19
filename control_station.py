@@ -125,6 +125,8 @@ class Gui(QMainWindow):
         self.ui.btnUser8.clicked.connect(self.calculate_offset)
         self.ui.btnUser12.setText('Save Images')
         self.ui.btnUser12.clicked.connect(self.camera.saveImage)
+        self.ui.btnUser12.setText('Check for Accuracy')
+        self.ui.btnUser12.clicked.connect(self.camera.check_for_accuracy)
 
         self.ui.btn_task1.clicked.connect(lambda: self.sm.set_next_state('event1'))
         self.ui.btn_task2.clicked.connect(lambda: self.sm.set_next_state('event2'))

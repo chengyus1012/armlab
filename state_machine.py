@@ -126,6 +126,7 @@ class StateMachine():
         if self.next_state == "event5":
             self.event5()
 
+
     """Functions run for each state"""
 
     def manual(self):

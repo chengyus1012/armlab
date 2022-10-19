@@ -2,6 +2,8 @@
 Class to represent the camera.
 """
 
+from turtle import position
+from xml.dom.minidom import Element
 import cv2
 import time
 import numpy as np
@@ -119,9 +121,9 @@ class Camera():
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
 
-            cv2.putText(BlockImageFrame, min_color + " " + str(int(depth)) , (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
-            cv2.putText(BlockImageFrame, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
-            cv2.putText(BlockImageFrame, str(int(dist)), (cx+30, cy+40), font, 1.0, (255,50,50), thickness=2)
+            cv2.putText(BlockImageFrame, min_color, (cx-30, cy+40), font, 1.0, (255,255,0), thickness=2)
+            # cv2.putText(BlockImageFrame, str(int(theta)), (cx, cy), font, 1.0, (255,255,255), thickness=2)
+            # cv2.putText(BlockImageFrame, str(int(dist)), (cx+30, cy+40), font, 1.0, (255,50,50), thickness=2)
 
         cv2.rectangle(BlockImageFrame, (self.board_left,self.board_top),(self.board_right,self.board_bottom), (255, 0, 0), 2)
         # cv2.rectangle(BlockImageFrame,(self.arm_left,self.arm_top),(self.arm_right,self.arm_bottom), (255, 0, 0), 2)
@@ -412,6 +414,31 @@ class Camera():
         return top_depth, mask
 
     # def world_xyz_to_world_xyz
+    def check_for_accuracy(self):
+        detections = self.detect_blocks(0)
+        detections.sort(key=lambda block: block.top_face_position[0] )
+        print(detections)
+        detections.sort(key= lambda block: block.top_face_position[1], reverse=True )
+        positions = []
+
+        for _, elem in enumerate(detections):
+            positions.append(elem.top_face_position)
+            print(elem.top_face_position)
+            
+            print("\n")
+        positions = np.asarray(positions)
+        positions = positions[:,0:2]
+        print(positions)
+
+        ground_truth = np.zeros(positions.shape[0],positions.shape[1])
+        ground_truth_x_pos = np.arange(-450,300,150)
+        ground_truth_y_pos = np.arange(425,-75,-100)
+        
+
+
+
+            
+
 
 class ImageListener:
     def __init__(self, topic, camera):
